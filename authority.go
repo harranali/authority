@@ -47,7 +47,7 @@ func (a *Authority) CreateRole(role string) error {
 	return res.Error
 }
 
-func (a *Authority) CreatePermissions(perm string) error {
+func (a *Authority) CreatePermission(perm string) error {
 	var dbPerm Permission
 	res := a.DB.Where("name = ?", perm).First(&dbPerm)
 	if res.Error != nil {

@@ -21,9 +21,9 @@ auth := authority.New(authority.Options{
 err := auth.CreateRole("role-1")
 
 // create permissions
-err := auth.CreatePermissions("permission-1")
-err = auth.CreatePermissions("permission-2")
-err = auth.CreatePermissions("permission-3")
+err := auth.CreatePermission("permission-1")
+err = auth.CreatePermission("permission-2")
+err = auth.CreatePermission("permission-3")
 
 // assign permissions to role
 err := auth.AssignPermissions("role-1", []string{
