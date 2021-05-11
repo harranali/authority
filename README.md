@@ -7,7 +7,7 @@ go get github.com/harranali/authority
 ```
 
 # Usage
-To initiate `authority` you need to pass two variables the first one is the the database table names prefix, the second is an instance of `gorm`
+To initiate `authority` you need to pass two variables the first one is the the database table names prefix, the second is an instance of [gorm](https://github.com/go-gorm/gorm)
 ```go
 dsn := "dbuser:dbpassword@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
 db, _ := gorm.Open(mysql.Open(dsn), &gorm.Config{})
