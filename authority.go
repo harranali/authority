@@ -32,7 +32,7 @@ func New(opts Options) *Authority {
 	return auth
 }
 
-// Resolve returns an the initiated instance
+// Resolve returns the initiated instance
 func Resolve() *Authority {
 	return auth
 }
@@ -54,7 +54,7 @@ func (a *Authority) CreateRole(roleName string) error {
 	return res.Error
 }
 
-//CreatePermission stores a permission in the database
+// CreatePermission stores a permission in the database
 // it accepts the permission name. it returns an error
 // in case of any
 func (a *Authority) CreatePermission(permName string) error {
@@ -75,7 +75,7 @@ func (a *Authority) CreatePermission(permName string) error {
 // it accepts in the first parameter the role name, it returns an error if there is not matching record
 // of the role name in the database.
 // the second parameter is a slice of strings which represents a group of permissions to be assigned to the role
-// if any of these permissions doesn't have a matching record in the database the operations stops, changes reverted and
+// if any of these permissions doesn't have a matching record in the database the operations stops, changes reverted
 // and error is returned
 // in case of success nothing is returned
 func (a *Authority) AssignPermissions(roleName string, permNames []string) error {
@@ -127,7 +127,6 @@ func (a *Authority) AssignPermissions(roleName string, permNames []string) error
 // the first parameter is the user id, the second parameter is the role name
 // if the role name doesn't have a matching record in the data base an error is returned
 // if the user have already a role assigned to him an error is returned
-// if assigned successfully nothing is returned
 func (a *Authority) AssignRole(userID uint, roleName string) error {
 	// find the role
 	var role Role
