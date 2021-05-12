@@ -122,3 +122,23 @@ CheckRolePermission checks if a role has the permission assigned. it accepts the
 // check if a role have a given permission
 ok, err := auth.CheckRolePermission("role-a", "permission-a")
 ```
+
+### func (a *Authority) RevokeRole(userID uint, roleName string) error
+RevokeRole revokes a user's role. it returns a error in case of any
+```go
+err = auth.RevokeRolePermission("role-a", "permission-a")
+```
+
+
+### func (a *Authority) RevokePermission(userID uint, permName string) error
+RevokePermission revokes a permission from the user's assigned role. it returns an error in case of any
+```go
+err = auth.RevokePermission(1, "permission-a")
+```
+
+
+### func (a *Authority) RevokeRolePermission(roleName string, permName string) error
+RevokeRolePermission revokes a permission from a given role  it returns an error in case of any
+```go
+err = auth.RevokeRolePermission("role-a", "permission-a")
+```
