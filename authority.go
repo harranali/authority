@@ -271,6 +271,97 @@ func (a *Authority) CheckRolePermission(roleName string, permName string) (bool,
 	return true, nil
 }
 
+// RevokeRole revokes a user's role
+// it returns a error in case of any
+func (a *Authority) RevokeRole(userID uint, roleName string) error {
+	// find the role
+	var role Role
+	res := a.DB.Where("name = ?", roleName).First(&role)
+	if res.Error != nil {
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			return errors.New("role not found")
+		}
+
+		return res.Error
+	}
+
+	// revoke the role
+	res = a.DB.Where("user_id = ?", userID).Where("role_id = ?", role.ID).Delete(UserRole{})
+	if res.Error != nil {
+		return errors.New("error removeing the role assigned" + res.Error.Error())
+	}
+
+	return nil
+}
+
+// RevokePermission revokes a permission from the user's assigned role
+// it returns an error in case of any
+func (a *Authority) RevokePermission(userID uint, permName string) error {
+	// find the user role
+	var userRole UserRole
+	res := a.DB.Where("user_id = ?", userID).First(&userRole)
+	if res.Error != nil {
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			return errors.New("user doesn't have a role assgined")
+		}
+
+		return res.Error
+	}
+
+	// find the permission
+	var perm Permission
+	res = a.DB.Where("name = ?", permName).First(&perm)
+	if res.Error != nil {
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			return errors.New("permission not found")
+		}
+
+		return res.Error
+	}
+
+	// revoke the permission
+	res = a.DB.Where("role_id = ?", userRole.RoleID).Where("permission_id = ?", perm.ID).Delete(RolePermission{})
+	if res.Error != nil {
+		return res.Error
+	}
+
+	return nil
+}
+
+// RevokeRolePermission revokes a permission from a given role
+// it returns an error in case of any
+func (a *Authority) RevokeRolePermission(roleName string, permName string) error {
+	// find the role
+	var role Role
+	res := a.DB.Where("name = ?", roleName).First(&role)
+	if res.Error != nil {
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			return errors.New("role not found")
+		}
+
+		return res.Error
+	}
+
+	// find the permission
+	var perm Permission
+	res = a.DB.Where("name = ?", permName).First(&perm)
+	if res.Error != nil {
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			return errors.New("permission not found")
+		}
+
+		return res.Error
+	}
+
+	// revoke the permission
+	res = a.DB.Where("role_id = ?", role.ID).Where("permission_id = ?", perm.ID).Delete(RolePermission{})
+	if res.Error != nil {
+		return res.Error
+	}
+
+	return nil
+}
+
 func migrateTabes(db *gorm.DB) {
 	db.AutoMigrate(&Role{})
 	db.AutoMigrate(&Permission{})
