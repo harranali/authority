@@ -378,6 +378,22 @@ func (a *Authority) GetRoles() ([]string, error) {
 	return result, nil
 }
 
+// GetPermissions retuns all stored permissions
+func (a *Authority) GetPermissions() ([]string, error) {
+	var result []string
+	var perms []Permission
+	res := a.DB.Find(&perms)
+	if res.Error != nil {
+		return []string{}, res.Error
+	}
+
+	for _, perm := range perms {
+		result = append(result, perm.Name)
+	}
+
+	return result, nil
+}
+
 func migrateTabes(db *gorm.DB) {
 	db.AutoMigrate(&Role{})
 	db.AutoMigrate(&Permission{})
