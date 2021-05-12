@@ -1,4 +1,4 @@
-# Authority (Under Development)
+# Authority
 
 ![Build Status](https://github.com/harranali/authority/actions/workflows/build-main.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/harranali/authority)](https://goreportcard.com/report/github.com/harranali/authority)
