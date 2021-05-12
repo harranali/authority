@@ -413,7 +413,7 @@ func (a *Authority) DeleteRole(roleName string) error {
 	res = a.DB.Where("role_id = ?", role.ID).First(&userRole)
 	if res.Error == nil {
 		// role is assigned
-		return errors.New("cannot delete assigned roles")
+		return errors.New("cannot delete assigned role")
 	}
 
 	// revoke the assignment of permissions before deleting the role
@@ -421,6 +421,37 @@ func (a *Authority) DeleteRole(roleName string) error {
 
 	// delete the role
 	res = a.DB.Where("name = ?", roleName).Delete(Role{})
+	if res.Error != nil {
+		return res.Error
+	}
+
+	return nil
+}
+
+// DeletePermission deletes a given permission
+// if the permission is assigned to a role it returns an error
+func (a *Authority) DeletePermission(permName string) error {
+	// find the permission
+	var perm Permission
+	res := a.DB.Where("name = ?", permName).First(&perm)
+	if res.Error != nil {
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			return errors.New("permission not found")
+		}
+
+		return res.Error
+	}
+
+	// check if the permission is assigned to a role
+	var rolePermission RolePermission
+	res = a.DB.Where("permission_id = ?", perm.ID).First(&rolePermission)
+	if res.Error == nil {
+		// role is assigned
+		return errors.New("cannot delete assigned permission")
+	}
+
+	// delete the permission
+	res = a.DB.Where("name = ?", permName).Delete(Permission{})
 	if res.Error != nil {
 		return res.Error
 	}
