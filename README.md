@@ -65,7 +65,7 @@ ok, err := auth.CheckRolePermission("role-a", "permission-a")
 # Docs
 
 ### func New(opts Options) *Authority
-New initates authority
+New initiates authority
 ```go
 dsn := "dbuser:dbpassword@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
 db, _ := gorm.Open(mysql.Open(dsn), &gorm.Config{})

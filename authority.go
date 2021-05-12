@@ -378,7 +378,7 @@ func (a *Authority) GetRoles() ([]string, error) {
 	return result, nil
 }
 
-// GetPermissions retuns all stored permissions
+// GetPermissions returns all stored permissions
 func (a *Authority) GetPermissions() ([]string, error) {
 	var result []string
 	var perms []Permission
