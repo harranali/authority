@@ -142,3 +142,27 @@ RevokeRolePermission revokes a permission from a given role  it returns an error
 ```go
 err = auth.RevokeRolePermission("role-a", "permission-a")
 ```
+
+### func (a *Authority) GetRoles() ([]string, error)
+GetRoles returns all stored roles
+```go
+roles, err := auth.GetRoles()
+```
+
+### func (a *Authority) GetPermissions() ([]string, error)
+GetPermissions retuns all stored permissions
+```go
+roles, err := auth.GetPermissions()
+```
+
+### func (a *Authority) DeleteRole(roleName string) error
+DeleteRole deletes a given role. if the role is assigned to a user it returns an error
+```go
+err := auth.DeleteRole("role-b")
+```
+
+### func (a *Authority) DeletePermission(permName string) error 
+DeletePermission deletes a given permission. if the permission is assigned to a role it returns an error
+```go
+err := auth.DeletePermission("permission-c")
+```
