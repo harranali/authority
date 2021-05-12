@@ -1,6 +1,6 @@
 package authority
 
-// Role represents the database model of permissions
+// Permission represents the database model of permissions
 type Permission struct {
 	ID   uint
 	Name string
