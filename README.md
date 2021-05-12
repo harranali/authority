@@ -2,18 +2,22 @@
 Role Based Access Control (RBAC) Go package with database persistence 
 
 # Install
+First get the `authority`
 ```bash
 go get github.com/harranali/authority
+```
+Next get the database driver for `gorm` that you will be using 
+```bash
 
-# then go get the database driver you will be using 
+# mysql 
 go get gorm.io/driver/mysql 
-# or
+# or postgres
 go get gorm.io/driver/postgres
-# or
+# or sqlite
 go get gorm.io/driver/sqlite
-# or 
+# or sqlserver
 go get gorm.io/driver/sqlserver
-# or 
+# or clickhouse
 go get gorm.io/driver/clickhouse
 ```
 
