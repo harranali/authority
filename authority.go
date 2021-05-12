@@ -394,6 +394,40 @@ func (a *Authority) GetPermissions() ([]string, error) {
 	return result, nil
 }
 
+// DeleteRole deletes a given role
+// if the role is assigned to a user it returns an error
+func (a *Authority) DeleteRole(roleName string) error {
+	// find the role
+	var role Role
+	res := a.DB.Where("name = ?", roleName).First(&role)
+	if res.Error != nil {
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			return errors.New("role not found")
+		}
+
+		return res.Error
+	}
+
+	// check if the role is assigned to a user
+	var userRole UserRole
+	res = a.DB.Where("role_id = ?", role.ID).First(&userRole)
+	if res.Error == nil {
+		// role is assigned
+		return errors.New("cannot delete assigned roles")
+	}
+
+	// revoke the assignment of permissions before deleting the role
+	a.DB.Where("role_id = ?", role.ID).Delete(RolePermission{})
+
+	// delete the role
+	res = a.DB.Where("name = ?", roleName).Delete(Role{})
+	if res.Error != nil {
+		return res.Error
+	}
+
+	return nil
+}
+
 func migrateTabes(db *gorm.DB) {
 	db.AutoMigrate(&Role{})
 	db.AutoMigrate(&Permission{})
