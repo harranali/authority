@@ -362,6 +362,22 @@ func (a *Authority) RevokeRolePermission(roleName string, permName string) error
 	return nil
 }
 
+// GetRoles returns all stored roles
+func (a *Authority) GetRoles() ([]string, error) {
+	var result []string
+	var roles []Role
+	res := a.DB.Find(&roles)
+	if res.Error != nil {
+		return []string{}, res.Error
+	}
+
+	for _, role := range roles {
+		result = append(result, role.Name)
+	}
+
+	return result, nil
+}
+
 func migrateTabes(db *gorm.DB) {
 	db.AutoMigrate(&Role{})
 	db.AutoMigrate(&Permission{})
