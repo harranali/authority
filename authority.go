@@ -6,10 +6,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// Authority helps deal with permissions
 type Authority struct {
 	DB *gorm.DB
 }
 
+// Options has the options for initating the package
 type Options struct {
 	TablesPrefix string
 	DB           *gorm.DB
@@ -19,6 +21,7 @@ var tablePrefix string
 
 var auth *Authority
 
+// New initates authority
 func New(opts Options) *Authority {
 	tablePrefix = opts.TablesPrefix
 	auth = &Authority{
@@ -29,17 +32,21 @@ func New(opts Options) *Authority {
 	return auth
 }
 
+// Resolve returns an the initiated instance
 func Resolve() *Authority {
 	return auth
 }
 
-func (a *Authority) CreateRole(role string) error {
+// CreateRole stores a role in the database
+// it accepts the role name. it returns an error
+// incase of any
+func (a *Authority) CreateRole(roleName string) error {
 	var dbRole Role
-	res := a.DB.Where("name = ?", role).First(&dbRole)
+	res := a.DB.Where("name = ?", roleName).First(&dbRole)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			// create
-			a.DB.Create(&Role{Name: role})
+			a.DB.Create(&Role{Name: roleName})
 			return nil
 		}
 	}
@@ -47,13 +54,16 @@ func (a *Authority) CreateRole(role string) error {
 	return res.Error
 }
 
-func (a *Authority) CreatePermission(perm string) error {
+//CreatePermission stores a permission in the database
+// it accepts the permission name. it returns an error
+// in case of any
+func (a *Authority) CreatePermission(permName string) error {
 	var dbPerm Permission
-	res := a.DB.Where("name = ?", perm).First(&dbPerm)
+	res := a.DB.Where("name = ?", permName).First(&dbPerm)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			// create
-			a.DB.Create(&Permission{Name: perm})
+			a.DB.Create(&Permission{Name: permName})
 			return nil
 		}
 	}
@@ -61,6 +71,13 @@ func (a *Authority) CreatePermission(perm string) error {
 	return res.Error
 }
 
+// AssignPermissions assigns a group of permissions to a given role
+// it accepts in the first parameter the role name, it returns an error if there is not matching record
+// of the role name in the database.
+// the second parameter is a slice of strings which represents a group of permissions to be assigned to the role
+// if any of these permissions doesn't have a matching record in the database the operations stops, changes reverted and
+// and error is returned
+// in case of success nothing is returned
 func (a *Authority) AssignPermissions(roleName string, permNames []string) error {
 	// get the role id
 	var role Role
@@ -106,6 +123,11 @@ func (a *Authority) AssignPermissions(roleName string, permNames []string) error
 	return nil
 }
 
+// AssignRole assigns a given role to a user
+// the first parameter is the user id, the second parameter is the role name
+// if the role name doesn't have a matching record in the data base an error is returned
+// if the user have already a role assigned to him an error is returned
+// if assigned successfully nothing is returned
 func (a *Authority) AssignRole(userID uint, roleName string) error {
 	// find the role
 	var role Role
@@ -135,6 +157,10 @@ func (a *Authority) AssignRole(userID uint, roleName string) error {
 	return errors.New("user have a role assgined")
 }
 
+// CheckRole checks if a role is assigned to a user
+// it accepts the user id as the first parameter
+// the role as the second parameter
+// it returns an error if the role is not present in database
 func (a *Authority) CheckRole(userID uint, roleName string) (bool, error) {
 	// find the role
 	var role Role
@@ -161,6 +187,12 @@ func (a *Authority) CheckRole(userID uint, roleName string) (bool, error) {
 	return true, nil
 }
 
+// CheckPermission checks if a permission is assigned to a user
+// it accepts the user id as the first parameter
+// the permission as the second parameter
+// it returns an error if the user donesn't have a rols assigned
+// it returns an error if the user's role doesn't have the permission assigned
+// it returns an error if the permission is not present in the database
 func (a *Authority) CheckPermission(userID uint, permName string) (bool, error) {
 	// the user role
 	var userRole UserRole
@@ -198,6 +230,11 @@ func (a *Authority) CheckPermission(userID uint, permName string) (bool, error) 
 	return true, nil
 }
 
+// CheckRolePermission checks if a role has the permission assigned
+// it accepts the role as the first parameter
+// it accepts the permission as the second parameter
+// it returns an error if the role is not present in database
+// it returns an error if the permission is not present in database
 func (a *Authority) CheckRolePermission(roleName string, permName string) (bool, error) {
 	// find the role
 	var role Role
