@@ -28,7 +28,7 @@ func New(opts Options) *Authority {
 		DB: opts.DB,
 	}
 
-	migrateTabes(opts.DB)
+	migrateTables(opts.DB)
 	return auth
 }
 
@@ -459,7 +459,7 @@ func (a *Authority) DeletePermission(permName string) error {
 	return nil
 }
 
-func migrateTabes(db *gorm.DB) {
+func migrateTables(db *gorm.DB) {
 	db.AutoMigrate(&Role{})
 	db.AutoMigrate(&Permission{})
 	db.AutoMigrate(&RolePermission{})
