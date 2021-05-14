@@ -174,7 +174,7 @@ roles, err := auth.GetRoles()
 ### func (a *Authority) GetPermissions() ([]string, error)
 GetPermissions retuns all stored permissions
 ```go
-roles, err := auth.GetPermissions()
+permissions, err := auth.GetPermissions()
 ```
 
 ### func (a *Authority) DeleteRole(roleName string) error
