@@ -13,7 +13,6 @@ go get github.com/harranali/authority
 ```
 Next get the database driver for `gorm` that you will be using 
 ```bash
-
 # mysql 
 go get gorm.io/driver/mysql 
 # or postgres
