@@ -67,7 +67,6 @@ ok, err := auth.CheckRolePermission("role-a", "permission-a")
 ```
 
 # Docs
-
 ### func New(opts Options) *Authority
 New initiates authority
 ```go
