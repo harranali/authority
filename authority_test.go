@@ -9,7 +9,7 @@ import (
 )
 
 func TestCreateRole(t *testing.T) {
-	dsn := "root:@tcp(127.0.0.1:3306)/gocondor?charset=utf8mb4&parseTime=True&loc=Local"
+	dsn := "root:@tcp(127.0.0.1:3306)/db_test?charset=utf8mb4&parseTime=True&loc=Local"
 	db, _ := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 
 	auth := authority.New(authority.Options{
