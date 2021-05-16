@@ -40,4 +40,7 @@ func TestCreateRole(t *testing.T) {
 	if c > 1 {
 		t.Error("unexpected duplicated entries for role")
 	}
+
+	// clean up
+	db.Where("name = ?", "role-a").Delete(authority.Role{})
 }
