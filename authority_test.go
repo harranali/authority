@@ -1,16 +1,39 @@
 package authority_test
 
 import (
+	"fmt"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/harranali/authority"
+	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
+var db *gorm.DB
+
+func TestMain(m *testing.M) {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	var dsn string
+	if os.Getenv("env") == "testing" {
+		dsn = fmt.Sprintf("root:%s@tcp(mysql:3306)/db_test?charset=utf8mb4&parseTime=True&loc=Local",
+			os.Getenv("ROOT_PASSWORD"))
+	} else {
+		dsn = "root:@tcp(127.0.0.1:3306)/db_test?charset=utf8mb4&parseTime=True&loc=Local"
+	}
+
+	db, _ = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+
+	// call flag.Parse() here if TestMain uses flags
+	os.Exit(m.Run())
+}
+
 func TestCreateRole(t *testing.T) {
-	dsn := "root:@tcp(127.0.0.1:3306)/db_test?charset=utf8mb4&parseTime=True&loc=Local"
-	db, _ := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 
 	auth := authority.New(authority.Options{
 		TablesPrefix: "authority_",

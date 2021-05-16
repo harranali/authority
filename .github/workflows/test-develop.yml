@@ -10,24 +10,6 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    services:
-      # mysql-service Label used to access the service container
-      mysql-service:
-        # Docker Hub image (also with version)
-        image: mysql:5.7
-        env:
-          ## Accessing to Github secrets, where you can store your configuration
-          MYSQL_ROOT_PASSWORD: ""
-          MYSQL_DATABASE: db_test
-        ## map the "external" 33306 port with the "internal" 3306
-        ports:
-          - 3306:3306
-        # Set health checks to wait until mysql database has started (it takes some seconds to start)
-        options: >-
-          --health-cmd="mysqladmin ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=3
     steps:
     - uses: actions/checkout@v2
 
@@ -35,6 +17,19 @@ jobs:
       uses: actions/setup-go@v2
       with:
         go-version: 1.16
+
+    - name: Set up Mysql
+    - uses: mirromutth/mysql-action@v1.1
+      with:
+        host port: 3306 # Optional, default value is 3306. The port of host
+        container port: 3306 # Optional, default value is 3306. The port of container
+        character set server: 'utf8' # Optional, default value is 'utf8mb4'. The '--character-set-server' option for mysqld
+        collation server: 'utf8_general_ci' # Optional, default value is 'utf8mb4_general_ci'. The '--collation-server' option for mysqld
+        mysql version: '8.0' # Optional, default value is "latest". The version of the MySQL
+        mysql database: 'db_test' # Optional, default value is "test". The specified database which will be create
+        mysql root password: ${{ secrets.ROOT_PASSWORD }} # Required if "mysql user" is empty, default is empty. The root superuser password
+        mysql user: 'developer' # Required if "mysql root password" is empty, default is empty. The superuser for the specified database. Can use secrets, too
+        mysql password: ${{ secrets.DEV_PASS }} # Required if "mysql user" exists. The password for the "mysql user"
 
     - name: Test
       run: go test -v ./...
