@@ -32,6 +32,6 @@ jobs:
         mysql password: ${{ secrets.DEV_PASS }} # Required if "mysql user" exists. The password for the "mysql user"
 
     - name: Test
-    - env
+    - env:
         ROOT_PASSWORD: ${{ secrets.ROOT_PASSWORD }}
       run: go test -v ./...
