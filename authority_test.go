@@ -375,6 +375,61 @@ func TestRevokePermission(t *testing.T) {
 		t.Error("unexpected error while assigning permissions.", err)
 	}
 
+	// assign the role
+	err = auth.AssignRole(1, "role-a")
+	if err != nil {
+		t.Error("unexpected error while assigning role.", err)
+	}
+
+	// test
+	err = auth.RevokePermission(1, "permission-a")
+	if err != nil {
+		t.Error("unexpected error while revoking role permissions.", err)
+	}
+	// assert, count assigned permission, should be one
+	var r authority.Role
+	db.Where("name = ?", "role-a").First(&r)
+	var c int64
+	db.Model(authority.RolePermission{}).Where("role_id = ?", r.ID).Count(&c)
+	if c != 1 {
+		t.Error("failed assert revoking permission role")
+	}
+
+	// clean up
+	db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
+	db.Where("role_id = ?", r.ID).Delete(authority.RolePermission{})
+	db.Where("name = ?", "permission-a").Delete(authority.Permission{})
+	db.Where("name = ?", "permission-b").Delete(authority.Permission{})
+	db.Where("name = ?", "role-a").Delete(authority.Role{})
+}
+
+func TestRevokeRolePermission(t *testing.T) {
+	auth := authority.New(authority.Options{
+		TablesPrefix: "authority_",
+		DB:           db,
+	})
+
+	// first create a role
+	err := auth.CreateRole("role-a")
+	if err != nil {
+		t.Error("unexpected error while creating role.", err)
+	}
+	// second test create permissions
+	err = auth.CreatePermission("permission-a")
+	if err != nil {
+		t.Error("unexpected error while creating permission to be assigned.", err)
+	}
+	err = auth.CreatePermission("permission-b")
+	if err != nil {
+		t.Error("unexpected error while creating permission to be assigned.", err)
+	}
+
+	// third assign the permissions
+	err = auth.AssignPermissions("role-a", []string{"permission-a", "permission-b"})
+	if err != nil {
+		t.Error("unexpected error while assigning permissions.", err)
+	}
+
 	// test
 	err = auth.RevokeRolePermission("role-a", "permission-a")
 	if err != nil {
