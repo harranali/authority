@@ -311,3 +311,39 @@ func TestCheckRolePermission(t *testing.T) {
 	db.Where("name = ?", "permission-b").Delete(authority.Permission{})
 	db.Where("name = ?", "role-a").Delete(authority.Role{})
 }
+
+func TestRevokeRole(t *testing.T) {
+	auth := authority.New(authority.Options{
+		TablesPrefix: "authority_",
+		DB:           db,
+	})
+
+	// first create a role
+	err := auth.CreateRole("role-a")
+	if err != nil {
+		t.Error("unexpected error while creating role.", err)
+	}
+
+	// assign the role
+	err = auth.AssignRole(1, "role-a")
+	if err != nil {
+		t.Error("unexpected error while assigning role.", err)
+	}
+
+	//test
+	err = auth.RevokeRole(1, "role-a")
+	if err != nil {
+		t.Error("unexpected error revoking user role.", err)
+	}
+
+	var c int64
+	db.Model(authority.UserRole{}).Where("user_id = ?", 1).Count(&c)
+	if c != 0 {
+		t.Error("failed assert revoking user role")
+	}
+
+	var r authority.Role
+	db.Where("name = ?", "role-a").First(&r)
+	db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
+	db.Where("name = ?", "role-a").Delete(authority.Role{})
+}
