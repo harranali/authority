@@ -10,6 +10,7 @@ import (
 	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var db *gorm.DB
@@ -28,7 +29,9 @@ func TestMain(m *testing.M) {
 		dsn = "root:@tcp(127.0.0.1:3306)/db_test?charset=utf8mb4&parseTime=True&loc=Local"
 	}
 
-	db, _ = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, _ = gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 
 	// call flag.Parse() here if TestMain uses flags
 	os.Exit(m.Run())
@@ -231,6 +234,12 @@ func TestCheckRole(t *testing.T) {
 	_, err = auth.CheckRole(1, "role-aa")
 	if err == nil {
 		t.Error("expecting an error when checking a missing role")
+	}
+
+	// check a missing user
+	ok, _ = auth.CheckRole(11, "role-a")
+	if ok {
+		t.Error("expecting false when checking missing role")
 	}
 
 	// clean up
