@@ -68,3 +68,37 @@ func TestCreateRole(t *testing.T) {
 	// clean up
 	db.Where("name = ?", "role-a").Delete(authority.Role{})
 }
+
+func TestCreatePermission(t *testing.T) {
+	auth := authority.New(authority.Options{
+		TablesPrefix: "authority_",
+		DB:           db,
+	})
+
+	// test create role
+	err := auth.CreatePermission("permission-a")
+	if err != nil {
+		t.Error("an error was not expected while creating permision ", err)
+	}
+
+	var c int64
+	res := db.Model(authority.Permission{}).Where("name = ?", "permission-a").Count(&c)
+	if res.Error != nil {
+		t.Error("unexpected error while storing permission: ", err)
+	}
+	if c == 0 {
+		t.Error("permission has not been stored")
+	}
+
+	// test duplicated entries
+	auth.CreateRole("permission-a")
+	auth.CreateRole("permission-a")
+	auth.CreateRole("permission-a")
+	db.Model(authority.Role{}).Where("name = ?", "permission-a").Count(&c)
+	if c > 1 {
+		t.Error("unexpected duplicated entries for permission")
+	}
+
+	// clean up
+	db.Where("name = ?", "permission-a").Delete(authority.Role{})
+}
