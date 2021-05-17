@@ -178,3 +178,36 @@ func TestAssignRole(t *testing.T) {
 	db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
 	db.Where("name = ?", "role-a").Delete(authority.Role{})
 }
+
+func TestCheckRole(t *testing.T) {
+	auth := authority.New(authority.Options{
+		TablesPrefix: "authority_",
+		DB:           db,
+	})
+
+	// first create a role and assign it to a user
+	err := auth.CreateRole("role-a")
+	if err != nil {
+		t.Error("unexpected error while creating role to be assigned.", err)
+	}
+	// assign the role
+	err = auth.AssignRole(1, "role-a")
+	if err != nil {
+		t.Error("unexpected error while assigning role.", err)
+	}
+
+	// assert
+	ok, err := auth.CheckRole(1, "role-a")
+	if err != nil {
+		t.Error("unexpected error while checking user for assigned role.", err)
+	}
+	if !ok {
+		t.Error("failed to check assinged role")
+	}
+
+	// clean up
+	var r authority.Role
+	db.Where("name = ?", "role-a").First(&r)
+	db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
+	db.Where("name = ?", "role-a").Delete(authority.Role{})
+}
