@@ -476,3 +476,29 @@ func TestGetRoles(t *testing.T) {
 	db.Where("name = ?", "role-a").Delete(authority.Role{})
 	db.Where("name = ?", "role-b").Delete(authority.Role{})
 }
+
+func TestGetPermissions(t *testing.T) {
+	auth := authority.New(authority.Options{
+		TablesPrefix: "authority_",
+		DB:           db,
+	})
+
+	// first create permission
+	err := auth.CreatePermission("permission-a")
+	if err != nil {
+		t.Error("unexpected error while creating permission.", err)
+	}
+	err = auth.CreatePermission("permission-b")
+	if err != nil {
+		t.Error("unexpected error while creating permission.", err)
+	}
+
+	// test
+	perms, err := auth.GetPermissions()
+	// check
+	if len(perms) != 2 {
+		t.Error("failed assert getting permission")
+	}
+	db.Where("name = ?", "permission-a").Delete(authority.Permission{})
+	db.Where("name = ?", "permission-b").Delete(authority.Permission{})
+}
