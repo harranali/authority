@@ -21,6 +21,8 @@ func TestMain(m *testing.M) {
 	}
 	var dsn string
 	if os.Getenv("env") == "testing" {
+		fmt.Println("preparing testing config...")
+		fmt.Println(os.Getenv("ROOT_PASSWORD"))
 		dsn = fmt.Sprintf("root:%s@tcp(127.0.0.1:3306)/db_test?charset=utf8mb4&parseTime=True&loc=Local",
 			os.Getenv("ROOT_PASSWORD"))
 	} else {
