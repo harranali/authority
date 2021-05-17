@@ -264,3 +264,50 @@ func TestCheckPermission(t *testing.T) {
 	db.Where("name = ?", "permission-b").Delete(authority.Permission{})
 	db.Where("name = ?", "role-a").Delete(authority.Role{})
 }
+
+func TestCheckRolePermission(t *testing.T) {
+	auth := authority.New(authority.Options{
+		TablesPrefix: "authority_",
+		DB:           db,
+	})
+
+	// first create a role
+	err := auth.CreateRole("role-a")
+	if err != nil {
+		t.Error("unexpected error while creating role.", err)
+	}
+
+	// second test create permissions
+	err = auth.CreatePermission("permission-a")
+	if err != nil {
+		t.Error("unexpected error while creating permission to be assigned.", err)
+	}
+	err = auth.CreatePermission("permission-b")
+	if err != nil {
+		t.Error("unexpected error while creating permission to be assigned.", err)
+	}
+
+	// third the permissions
+	err = auth.AssignPermissions("role-a", []string{"permission-a", "permission-b"})
+	if err != nil {
+		t.Error("unexpected error while assigning permissions.", err)
+	}
+
+	// check the role permission
+	ok, err := auth.CheckRolePermission("role-a", "permission-a")
+	if err != nil {
+		t.Error("unexpected error while checking role permission.", err)
+	}
+
+	if !ok {
+		t.Error("failed assigning roles to permission check")
+	}
+
+	//clean up
+	var r authority.Role
+	db.Where("name = ?", "role-a").First(&r)
+	db.Where("role_id = ?", r.ID).Delete(authority.RolePermission{})
+	db.Where("name = ?", "permission-a").Delete(authority.Permission{})
+	db.Where("name = ?", "permission-b").Delete(authority.Permission{})
+	db.Where("name = ?", "role-a").Delete(authority.Role{})
+}
