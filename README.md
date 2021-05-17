@@ -3,9 +3,23 @@
 ![Build Status](https://github.com/harranali/authority/actions/workflows/build-main.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/harranali/authority)](https://goreportcard.com/report/github.com/harranali/authority)
 [![GoDoc](https://godoc.org/github.com/harranali/authority?status.svg)](https://godoc.org/github.com/harranali/authority)
-[![Coverage Status](https://coveralls.io/repos/github/harranali/authority/badge.svg?branch=main)](https://coveralls.io/github/harranali/authority?branch=main)
 
 Role Based Access Control (RBAC) Go package with database persistence 
+# Features
+- Create Roles
+- Create Permissions
+- Assign Permissions To Roles
+- Assign Roles To Users
+- Check User's Roles
+- Check User's Permissions
+- Check Role's Permissions
+- Revoke User's Roles
+- Revoke User's Permissions
+- Revoke Role's permissions
+- List Roles
+- List Permissions
+- Delete Roles
+- Delete Permissions
 
 # Install
 First get `authority`
