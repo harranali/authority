@@ -525,3 +525,26 @@ func TestDeleteRole(t *testing.T) {
 		t.Error("failed assert deleting role")
 	}
 }
+
+func TestDeletePermission(t *testing.T) {
+	auth := authority.New(authority.Options{
+		TablesPrefix: "authority_",
+		DB:           db,
+	})
+
+	err := auth.CreatePermission("permission-a")
+	if err != nil {
+		t.Error("unexpected error while creating permission.", err)
+	}
+
+	err = auth.DeletePermission("permission-a")
+	if err != nil {
+		t.Error("unexpected error while deleting permission.", err)
+	}
+
+	var c int64
+	db.Model(authority.Permission{}).Count(&c)
+	if c != 0 {
+		t.Error("failed assert deleting permission")
+	}
+}
