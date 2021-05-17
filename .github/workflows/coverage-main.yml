@@ -1,0 +1,53 @@
+name: Code Coverage
+on: [push, pull_request]
+jobs:
+  test:
+    name: Test with Coverage
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v1
+      with:
+        go-version: '1.16'
+
+    - name: Set up Mysql
+      uses: mirromutth/mysql-action@v1.1
+      with:
+        host port: 3306 # Optional, default value is 3306. The port of host
+        container port: 3306 # Optional, default value is 3306. The port of container
+        character set server: 'utf8' # Optional, default value is 'utf8mb4'. The '--character-set-server' option for mysqld
+        collation server: 'utf8_general_ci' # Optional, default value is 'utf8mb4_general_ci'. The '--collation-server' option for mysqld
+        mysql version: '5.7' # Optional, default value is "latest". The version of the MySQL
+        mysql database: 'db_test' # Optional, default value is "test". The specified database which will be create
+        mysql root password: ${{ secrets.ROOT_PASSWORD }} # Required if "mysql user" is empty, default is empty. The root superuser password
+        mysql user: 'developer' # Required if "mysql root password" is empty, default is empty. The superuser for the specified database. Can use secrets, too
+        mysql password: ${{ secrets.DEV_PASS }} # Required if "mysql user" exists. The password for the "mysql user"
+
+
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: |
+        go mod download
+
+    - name: Run Unit tests
+      env:
+        ROOT_PASSWORD: ${{ secrets.ROOT_PASSWORD }}
+      run: |
+        go test -race -covermode atomic -coverprofile=covprofile ./...
+
+    - name: Install goveralls
+      env:
+        GO111MODULE: off
+      run: go get github.com/mattn/goveralls
+    # - name: Send coverage
+    #   env:
+    #     COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #   run: goveralls -coverprofile=covprofile -service=github
+    # or use shogo82148/actions-goveralls
+
+    - name: Send coverage
+      uses: shogo82148/actions-goveralls@v1
+      with:
+        path-to-profile: covprofile
