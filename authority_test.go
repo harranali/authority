@@ -640,6 +640,24 @@ func TestDeletePermission(t *testing.T) {
 		t.Error("unexpected error while creating permission.", err)
 	}
 
+	// delete missing permission
+	err = auth.DeletePermission("permission-aa")
+	if err == nil {
+		t.Error("expecting an error when deleting a missing permission")
+	}
+
+	// delete an assigned permission
+	auth.CreateRole("role-a")
+	auth.AssignPermissions("role-a", []string{"permission-a"})
+
+	// delete assinged permission
+	err = auth.DeletePermission("permission-a")
+	if err == nil {
+		t.Error("expecting an error when deleting assigned permission")
+	}
+
+	auth.RevokeRolePermission("role-a", "permission-a")
+
 	err = auth.DeletePermission("permission-a")
 	if err != nil {
 		t.Error("unexpected error while deleting permission.", err)
@@ -650,4 +668,7 @@ func TestDeletePermission(t *testing.T) {
 	if c != 0 {
 		t.Error("failed assert deleting permission")
 	}
+
+	// clean up
+	auth.DeleteRole("role-a")
 }
