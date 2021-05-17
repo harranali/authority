@@ -227,6 +227,12 @@ func TestCheckRole(t *testing.T) {
 		t.Error("failed to check assinged role")
 	}
 
+	// check aa missing role
+	_, err = auth.CheckRole(1, "role-aa")
+	if err == nil {
+		t.Error("expecting an error when checking a missing role")
+	}
+
 	// clean up
 	var r authority.Role
 	db.Where("name = ?", "role-a").First(&r)
