@@ -401,6 +401,11 @@ func TestRevokeRole(t *testing.T) {
 	if err != nil {
 		t.Error("unexpected error revoking user role.", err)
 	}
+	// revoke missing role
+	err = auth.RevokeRole(1, "role-aa")
+	if err == nil {
+		t.Error("expecting error when revoking a missing role")
+	}
 
 	var c int64
 	db.Model(authority.UserRole{}).Where("user_id = ?", 1).Count(&c)
@@ -452,6 +457,13 @@ func TestRevokePermission(t *testing.T) {
 	if err != nil {
 		t.Error("unexpected error while revoking role permissions.", err)
 	}
+
+	// revoke missing permissin
+	err = auth.RevokePermission(1, "permission-aa")
+	if err == nil {
+		t.Error("expecting error when revoking a missing permission")
+	}
+
 	// assert, count assigned permission, should be one
 	var r authority.Role
 	db.Where("name = ?", "role-a").First(&r)
