@@ -54,7 +54,7 @@ err := auth.AssignPermissions("role-1", []string{
     "permission-3",
 })
 
-// assign a role to user (user id) 
+// assign a role to user (user id = 1) 
 err = auth.AssignRole(1, "role-a")
 
 // check if the user have a given role
