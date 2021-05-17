@@ -508,7 +508,18 @@ func TestRevokeRolePermission(t *testing.T) {
 		t.Error("unexpected error while assigning permissions.", err)
 	}
 
-	// test
+	// test revoke missing role
+	err = auth.RevokeRolePermission("role-aa", "permission-a")
+	if err == nil {
+		t.Error("expecting an error when revoking a missing role")
+	}
+
+	// test revoke missing permission
+	err = auth.RevokeRolePermission("role-a", "permission-aa")
+	if err == nil {
+		t.Error("expecting an error when revoking a missing permission")
+	}
+
 	err = auth.RevokeRolePermission("role-a", "permission-a")
 	if err != nil {
 		t.Error("unexpected error while revoking role permissions.", err)
@@ -591,6 +602,20 @@ func TestDeleteRole(t *testing.T) {
 	if err != nil {
 		t.Error("unexpected error while creating role.", err)
 	}
+
+	// test delete a missing role
+	err = auth.DeleteRole("role-aa")
+	if err == nil {
+		t.Error("expecting an error when deleting a missing role")
+	}
+
+	// test delete an assigned role
+	auth.AssignRole(1, "role-a")
+	err = auth.DeleteRole("role-a")
+	if err == nil {
+		t.Error("expecting an error when deleting an assigned role")
+	}
+	auth.RevokeRole(1, "role-a")
 
 	err = auth.DeleteRole("role-a")
 	if err != nil {
