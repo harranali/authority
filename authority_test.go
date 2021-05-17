@@ -176,7 +176,18 @@ func TestAssignRole(t *testing.T) {
 		t.Error("unexpected error while assigning role.", err)
 	}
 
-	// assert
+	// double assign user
+	err = auth.AssignRole(1, "role-a")
+	if err == nil {
+		t.Error("expecting an error when assign a role to user more than one time")
+	}
+
+	// assign missing role
+	err = auth.AssignRole(1, "role-aa")
+	if err == nil {
+		t.Error("expecting an error when assigning role to a user")
+	}
+
 	var r authority.Role
 	db.Where("name = ?", "role-a").First(&r)
 	var userRoles int64
