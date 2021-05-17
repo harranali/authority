@@ -87,7 +87,6 @@ func (a *Authority) AssignPermissions(roleName string, permNames []string) error
 			return errors.New("role record not found")
 		}
 
-		return rRes.Error
 	}
 
 	var perms []Permission
@@ -100,7 +99,6 @@ func (a *Authority) AssignPermissions(roleName string, permNames []string) error
 				return errors.New("a permission record not found")
 			}
 
-			return pRes.Error
 		}
 
 		perms = append(perms, perm)
@@ -135,7 +133,6 @@ func (a *Authority) AssignRole(userID uint, roleName string) error {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return errors.New("missing role record")
 		}
-		return res.Error
 	}
 
 	var userRole UserRole
@@ -150,7 +147,6 @@ func (a *Authority) AssignRole(userID uint, roleName string) error {
 			return nil
 		}
 
-		return res.Error
 	}
 
 	return errors.New("user have a role assgined")
@@ -169,7 +165,6 @@ func (a *Authority) CheckRole(userID uint, roleName string) (bool, error) {
 			return false, errors.New("Role not found")
 		}
 
-		return false, res.Error
 	}
 
 	// check if the role is a ssigned
@@ -180,7 +175,6 @@ func (a *Authority) CheckRole(userID uint, roleName string) (bool, error) {
 			return false, nil
 		}
 
-		return false, res.Error
 	}
 
 	return true, nil
@@ -201,7 +195,6 @@ func (a *Authority) CheckPermission(userID uint, permName string) (bool, error) 
 			return false, errors.New("user doesn't have a role assigned")
 		}
 
-		return false, res.Error
 	}
 
 	// fin the permission
@@ -212,7 +205,6 @@ func (a *Authority) CheckPermission(userID uint, permName string) (bool, error) 
 			return false, errors.New("permission not found")
 		}
 
-		return false, res.Error
 	}
 
 	// find the role permission
@@ -223,7 +215,6 @@ func (a *Authority) CheckPermission(userID uint, permName string) (bool, error) 
 			return false, nil
 		}
 
-		return false, res.Error
 	}
 
 	return true, nil
@@ -243,7 +234,6 @@ func (a *Authority) CheckRolePermission(roleName string, permName string) (bool,
 			return false, errors.New("role not found")
 		}
 
-		return false, res.Error
 	}
 
 	// find the permission
@@ -254,7 +244,6 @@ func (a *Authority) CheckRolePermission(roleName string, permName string) (bool,
 			return false, errors.New("permission not found")
 		}
 
-		return false, res.Error
 	}
 
 	// find the rolePermission
@@ -265,7 +254,6 @@ func (a *Authority) CheckRolePermission(roleName string, permName string) (bool,
 			return false, nil
 		}
 
-		return false, res.Error
 	}
 
 	return true, nil
@@ -282,7 +270,6 @@ func (a *Authority) RevokeRole(userID uint, roleName string) error {
 			return errors.New("role not found")
 		}
 
-		return res.Error
 	}
 
 	// revoke the role
@@ -305,7 +292,6 @@ func (a *Authority) RevokePermission(userID uint, permName string) error {
 			return errors.New("user doesn't have a role assgined")
 		}
 
-		return res.Error
 	}
 
 	// find the permission
@@ -316,14 +302,10 @@ func (a *Authority) RevokePermission(userID uint, permName string) error {
 			return errors.New("permission not found")
 		}
 
-		return res.Error
 	}
 
 	// revoke the permission
-	res = a.DB.Where("role_id = ?", userRole.RoleID).Where("permission_id = ?", perm.ID).Delete(RolePermission{})
-	if res.Error != nil {
-		return res.Error
-	}
+	a.DB.Where("role_id = ?", userRole.RoleID).Where("permission_id = ?", perm.ID).Delete(RolePermission{})
 
 	return nil
 }
@@ -339,7 +321,6 @@ func (a *Authority) RevokeRolePermission(roleName string, permName string) error
 			return errors.New("role not found")
 		}
 
-		return res.Error
 	}
 
 	// find the permission
@@ -350,14 +331,10 @@ func (a *Authority) RevokeRolePermission(roleName string, permName string) error
 			return errors.New("permission not found")
 		}
 
-		return res.Error
 	}
 
 	// revoke the permission
-	res = a.DB.Where("role_id = ?", role.ID).Where("permission_id = ?", perm.ID).Delete(RolePermission{})
-	if res.Error != nil {
-		return res.Error
-	}
+	a.DB.Where("role_id = ?", role.ID).Where("permission_id = ?", perm.ID).Delete(RolePermission{})
 
 	return nil
 }
@@ -366,10 +343,7 @@ func (a *Authority) RevokeRolePermission(roleName string, permName string) error
 func (a *Authority) GetRoles() ([]string, error) {
 	var result []string
 	var roles []Role
-	res := a.DB.Find(&roles)
-	if res.Error != nil {
-		return []string{}, res.Error
-	}
+	a.DB.Find(&roles)
 
 	for _, role := range roles {
 		result = append(result, role.Name)
@@ -382,10 +356,7 @@ func (a *Authority) GetRoles() ([]string, error) {
 func (a *Authority) GetPermissions() ([]string, error) {
 	var result []string
 	var perms []Permission
-	res := a.DB.Find(&perms)
-	if res.Error != nil {
-		return []string{}, res.Error
-	}
+	a.DB.Find(&perms)
 
 	for _, perm := range perms {
 		result = append(result, perm.Name)
@@ -405,7 +376,6 @@ func (a *Authority) DeleteRole(roleName string) error {
 			return errors.New("role not found")
 		}
 
-		return res.Error
 	}
 
 	// check if the role is assigned to a user
@@ -420,10 +390,7 @@ func (a *Authority) DeleteRole(roleName string) error {
 	a.DB.Where("role_id = ?", role.ID).Delete(RolePermission{})
 
 	// delete the role
-	res = a.DB.Where("name = ?", roleName).Delete(Role{})
-	if res.Error != nil {
-		return res.Error
-	}
+	a.DB.Where("name = ?", roleName).Delete(Role{})
 
 	return nil
 }
@@ -439,7 +406,6 @@ func (a *Authority) DeletePermission(permName string) error {
 			return errors.New("permission not found")
 		}
 
-		return res.Error
 	}
 
 	// check if the permission is assigned to a role
@@ -451,10 +417,7 @@ func (a *Authority) DeletePermission(permName string) error {
 	}
 
 	// delete the permission
-	res = a.DB.Where("name = ?", permName).Delete(Permission{})
-	if res.Error != nil {
-		return res.Error
-	}
+	a.DB.Where("name = ?", permName).Delete(Permission{})
 
 	return nil
 }
