@@ -131,7 +131,18 @@ func TestAssignPermission(t *testing.T) {
 		t.Error("unexpected error while assigning permissions.", err)
 	}
 
-	// assert
+	// assign to missing role
+	err = auth.AssignPermissions("role-aa", []string{"permission-a", "permission-b"})
+	if err == nil {
+		t.Error("expecting error when assigning to missing role")
+	}
+
+	// assign to missing permission
+	err = auth.AssignPermissions("role-a", []string{"permission-aa"})
+	if err == nil {
+		t.Error("expecting error when assigning missing permission")
+	}
+
 	var r authority.Role
 	db.Where("name = ?", "role-a").First(&r)
 	var rolePermsCount int64
