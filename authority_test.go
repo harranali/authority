@@ -282,6 +282,24 @@ func TestCheckPermission(t *testing.T) {
 	if !ok {
 		t.Error("failed to assert checking permission of a user")
 	}
+	// test assigning to missing user
+	_, err = auth.CheckPermission(11, "permission-a")
+	if err == nil {
+		t.Error("expecting an error when checking permission of missing user")
+	}
+
+	// test assigning missing permission
+	_, err = auth.CheckPermission(1, "permission-aa")
+	if err == nil {
+		t.Error("expecting an error when checking a missing permission")
+	}
+
+	// test for checking not assigned permission
+	auth.CreatePermission("permission-c")
+	ok, _ = auth.CheckPermission(1, "permission-c")
+	if ok {
+		t.Error("expecting false when checking for not assigned permissions")
+	}
 
 	//clean up
 	var r authority.Role
@@ -290,6 +308,7 @@ func TestCheckPermission(t *testing.T) {
 	db.Where("role_id = ?", r.ID).Delete(authority.RolePermission{})
 	db.Where("name = ?", "permission-a").Delete(authority.Permission{})
 	db.Where("name = ?", "permission-b").Delete(authority.Permission{})
+	db.Where("name = ?", "permission-c").Delete(authority.Permission{})
 	db.Where("name = ?", "role-a").Delete(authority.Role{})
 }
 
