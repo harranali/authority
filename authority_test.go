@@ -211,3 +211,56 @@ func TestCheckRole(t *testing.T) {
 	db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
 	db.Where("name = ?", "role-a").Delete(authority.Role{})
 }
+
+func TestCheckPermission(t *testing.T) {
+	auth := authority.New(authority.Options{
+		TablesPrefix: "authority_",
+		DB:           db,
+	})
+
+	// first create a role
+	err := auth.CreateRole("role-a")
+	if err != nil {
+		t.Error("unexpected error while creating role.", err)
+	}
+
+	//create permissions
+	err = auth.CreatePermission("permission-a")
+	if err != nil {
+		t.Error("unexpected error while creating permission to be assigned.", err)
+	}
+	err = auth.CreatePermission("permission-b")
+	if err != nil {
+		t.Error("unexpected error while creating permission to be assigned.", err)
+	}
+
+	// assign the permissions
+	err = auth.AssignPermissions("role-a", []string{"permission-a", "permission-b"})
+	if err != nil {
+		t.Error("unexpected error while assigning permissions.", err)
+	}
+
+	// assign the role
+	err = auth.AssignRole(1, "role-a")
+	if err != nil {
+		t.Error("unexpected error while assigning role.", err)
+	}
+
+	// test
+	ok, err := auth.CheckPermission(1, "permission-a")
+	if err != nil {
+		t.Error("unexpected error while checking permission of a user.", err)
+	}
+	if !ok {
+		t.Error("failed to assert checking permission of a user")
+	}
+
+	//clean up
+	var r authority.Role
+	db.Where("name = ?", "role-a").First(&r)
+	db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
+	db.Where("role_id = ?", r.ID).Delete(authority.RolePermission{})
+	db.Where("name = ?", "permission-a").Delete(authority.Permission{})
+	db.Where("name = ?", "permission-b").Delete(authority.Permission{})
+	db.Where("name = ?", "role-a").Delete(authority.Role{})
+}
