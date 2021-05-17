@@ -3,6 +3,7 @@
 ![Build Status](https://github.com/harranali/authority/actions/workflows/build-main.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/harranali/authority)](https://goreportcard.com/report/github.com/harranali/authority)
 [![GoDoc](https://godoc.org/github.com/harranali/authority?status.svg)](https://godoc.org/github.com/harranali/authority)
+[![Coverage Status](https://coveralls.io/repos/github/harranali/authority/badge.svg?branch=main)](https://coveralls.io/github/harranali/authority?branch=main)
 
 Role Based Access Control (RBAC) Go package with database persistence 
 # Features
