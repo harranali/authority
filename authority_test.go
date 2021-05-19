@@ -310,7 +310,7 @@ func TestCheckPermission(t *testing.T) {
 	}
 
 	// check when user does not have roles
-	ok, _ = auth.CheckPermission(11, "permission-a")
+	ok, _ = auth.CheckPermission(111, "permission-a")
 	if ok {
 		t.Error("expecting an false when checking permission of not assigned  user")
 	}
@@ -477,6 +477,12 @@ func TestRevokePermission(t *testing.T) {
 	err = auth.AssignRole(1, "role-a")
 	if err != nil {
 		t.Error("unexpected error while assigning role.", err)
+	}
+
+	// case: user not assigned role
+	err = auth.RevokePermission(11, "permission-a")
+	if err != nil {
+		t.Error("expecting error to be nil", err)
 	}
 
 	// test

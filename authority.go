@@ -144,10 +144,7 @@ func (a *Authority) AssignRole(userID uint, roleName string) error {
 	}
 
 	// assign the role
-	cRes := a.DB.Create(&UserRole{UserID: userID, RoleID: role.ID})
-	if cRes.Error != nil {
-		return errors.New("error assigning user, " + cRes.Error.Error())
-	}
+	a.DB.Create(&UserRole{UserID: userID, RoleID: role.ID})
 
 	return nil
 }
@@ -273,10 +270,7 @@ func (a *Authority) RevokeRole(userID uint, roleName string) error {
 	}
 
 	// revoke the role
-	res = a.DB.Where("user_id = ?", userID).Where("role_id = ?", role.ID).Delete(UserRole{})
-	if res.Error != nil {
-		return errors.New("error removeing the role assigned" + res.Error.Error())
-	}
+	a.DB.Where("user_id = ?", userID).Where("role_id = ?", role.ID).Delete(UserRole{})
 
 	return nil
 }
@@ -290,7 +284,7 @@ func (a *Authority) RevokePermission(userID uint, permName string) error {
 	res := a.DB.Where("user_id = ?", userID).Find(&userRoles)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return errors.New("user doesn't have a role assgined")
+			return nil
 		}
 
 	}
