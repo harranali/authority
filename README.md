@@ -10,16 +10,17 @@ Role Based Access Control (RBAC) Go package with database persistence
 # Features
 - Create Roles
 - Create Permissions
-- Assign Permissions To Roles
-- Assign Roles To Users
+- Assign Permissions to Roles
+- Assign Multiple Roles to Users
 - Check User's Roles
 - Check User's Permissions
 - Check Role's Permissions
 - Revoke User's Roles
 - Revoke User's Permissions
 - Revoke Role's permissions
-- List Roles
-- List Permissions
+- List User's Roles
+- List All Roles
+- List All Permissions
 - Delete Roles
 - Delete Permissions
 
@@ -132,7 +133,7 @@ err := auth.AssignPermissions("role-1", []string{
 
 
 ### func (a *Authority) AssignRole(userID uint, roleName string) error
-AssignRole assigns a given role to a user. the first parameter is the user id, the second parameter is the role name. if the role name doesn't have a matching record in the data base an error is returned. if the user have already a role assigned to him an error is returned.
+AssignRole assigns a given role to a user, you can assign multiple roles to a user, the first parameter is the user id, the second parameter is the role name. if the role name doesn't have a matching record in the database an error is returned.
 ```go
 // assign a role to user (user id) 
 err = auth.AssignRole(1, "role-a")
@@ -147,7 +148,7 @@ ok, err := auth.CheckRole(1, "role-a")
 ```
 
 ### func (a *Authority) CheckPermission(userID uint, permName string) (bool, error)
-CheckPermission checks if a permission is assigned to a user. it accepts the user id as the first parameter. the permission as the second parameter. it returns an error if the user donesn't have a rols assigned. it returns an error if the user's role doesn't have the permission assigned. it returns an error if the permission is not present in the database
+CheckPermission checks if a permission is assigned to the role that's assigned to the user. it accepts the user id as the first parameter. the permission as the second parameter.  it returns an error if the permission is not present in the database
 ```go
 // check if a user have a given permission 
 ok, err := auth.CheckPermission(1, "permission-d")
@@ -184,6 +185,12 @@ err = auth.RevokeRolePermission("role-a", "permission-a")
 GetRoles returns all stored roles
 ```go
 roles, err := auth.GetRoles()
+```
+
+### (a *Authority) GetUserRoles(userID uint) ([]string, error) 
+GetUserRoles returns user assigned roles
+```go
+roles, err := auth.GetUserRoles(1)
 ```
 
 ### func (a *Authority) GetPermissions() ([]string, error)

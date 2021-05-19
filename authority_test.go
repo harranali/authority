@@ -179,10 +179,17 @@ func TestAssignRole(t *testing.T) {
 		t.Error("unexpected error while assigning role.", err)
 	}
 
-	// double assign user
+	// double assign the role
 	err = auth.AssignRole(1, "role-a")
 	if err == nil {
 		t.Error("expecting an error when assign a role to user more than one time")
+	}
+
+	// assign a second role
+	auth.CreateRole("role-b")
+	err = auth.AssignRole(1, "role-b")
+	if err != nil {
+		t.Error("un expected error when assigning a second role. ", err)
 	}
 
 	// assign missing role
@@ -199,9 +206,10 @@ func TestAssignRole(t *testing.T) {
 		t.Error("failed assigning roles to permission")
 	}
 
-	// clean up
-	db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
+	//clean up
+	db.Where("user_id = ?", 1).Delete(authority.UserRole{})
 	db.Where("name = ?", "role-a").Delete(authority.Role{})
+	db.Where("name = ?", "role-b").Delete(authority.Role{})
 }
 
 func TestCheckRole(t *testing.T) {
@@ -277,24 +285,34 @@ func TestCheckPermission(t *testing.T) {
 		t.Error("unexpected error while assigning permissions.", err)
 	}
 
+	// test when no role is a ssigned
+	ok, err := auth.CheckPermission(1, "permission-a")
+	if err != nil {
+		t.Error("expecting error to be nil when no role is assigned")
+	}
+	if ok {
+		t.Error("expecting false to be returned when no role is assigned")
+	}
+
 	// assign the role
 	err = auth.AssignRole(1, "role-a")
 	if err != nil {
 		t.Error("unexpected error while assigning role.", err)
 	}
 
-	// test
-	ok, err := auth.CheckPermission(1, "permission-a")
+	// test a permission of an assigned role
+	ok, err = auth.CheckPermission(1, "permission-a")
 	if err != nil {
 		t.Error("unexpected error while checking permission of a user.", err)
 	}
 	if !ok {
-		t.Error("failed to assert checking permission of a user")
+		t.Error("expecting true to be returned")
 	}
-	// test assigning to missing user
-	_, err = auth.CheckPermission(11, "permission-a")
-	if err == nil {
-		t.Error("expecting an error when checking permission of missing user")
+
+	// check when user does not have roles
+	ok, _ = auth.CheckPermission(11, "permission-a")
+	if ok {
+		t.Error("expecting an false when checking permission of not assigned  user")
 	}
 
 	// test assigning missing permission
@@ -303,14 +321,14 @@ func TestCheckPermission(t *testing.T) {
 		t.Error("expecting an error when checking a missing permission")
 	}
 
-	// test for checking not assigned permission
+	// check for an exist but not assigned permission
 	auth.CreatePermission("permission-c")
 	ok, _ = auth.CheckPermission(1, "permission-c")
 	if ok {
 		t.Error("expecting false when checking for not assigned permissions")
 	}
 
-	//clean up
+	// clean up
 	var r authority.Role
 	db.Where("name = ?", "role-a").First(&r)
 	db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
@@ -680,4 +698,44 @@ func TestDeletePermission(t *testing.T) {
 
 	// clean up
 	auth.DeleteRole("role-a")
+}
+
+func TestGetUserRoles(t *testing.T) {
+	auth := authority.New(authority.Options{
+		TablesPrefix: "authority_",
+		DB:           db,
+	})
+
+	// first create a role
+	auth.CreateRole("role-a")
+	auth.CreateRole("role-b")
+	auth.AssignRole(1, "role-a")
+	auth.AssignRole(1, "role-b")
+
+	roles, _ := auth.GetUserRoles(1)
+	if len(roles) != 2 {
+		t.Error("expeting two roles to be returned")
+	}
+
+	if !sliceHasString(roles, "role-a") {
+		t.Error("missing role in returned roles")
+	}
+
+	if !sliceHasString(roles, "role-b") {
+		t.Error("missing role in returned roles")
+	}
+
+	db.Where("user_id = ?", 1).Delete(authority.UserRole{})
+	db.Where("name = ?", "role-a").Delete(authority.Role{})
+	db.Where("name = ?", "role-b").Delete(authority.Role{})
+}
+
+func sliceHasString(s []string, val string) bool {
+	for _, v := range s {
+		if v == val {
+			return true
+		}
+	}
+
+	return false
 }

@@ -126,7 +126,7 @@ func (a *Authority) AssignPermissions(roleName string, permNames []string) error
 // if the role name doesn't have a matching record in the data base an error is returned
 // if the user have already a role assigned to him an error is returned
 func (a *Authority) AssignRole(userID uint, roleName string) error {
-	// find the role
+	// make sure the role exist
 	var role Role
 	res := a.DB.Where("name = ?", roleName).First(&role)
 	if res.Error != nil {
@@ -135,21 +135,21 @@ func (a *Authority) AssignRole(userID uint, roleName string) error {
 		}
 	}
 
+	// check if the role is already assigned
 	var userRole UserRole
 	res = a.DB.Where("user_id = ?", userID).Where("role_id = ?", role.ID).First(&userRole)
-	if res.Error != nil {
-		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			// create
-			cRes := a.DB.Create(&UserRole{UserID: userID, RoleID: role.ID})
-			if cRes.Error != nil {
-				return errors.New("error assigning user, " + cRes.Error.Error())
-			}
-			return nil
-		}
-
+	if res.Error == nil {
+		//found a record, this role is already assigned to the same user
+		return errors.New("this role is already assinged to the user")
 	}
 
-	return errors.New("user have a role assgined")
+	// assign the role
+	cRes := a.DB.Create(&UserRole{UserID: userID, RoleID: role.ID})
+	if cRes.Error != nil {
+		return errors.New("error assigning user, " + cRes.Error.Error())
+	}
+
+	return nil
 }
 
 // CheckRole checks if a role is assigned to a user
@@ -180,24 +180,27 @@ func (a *Authority) CheckRole(userID uint, roleName string) (bool, error) {
 	return true, nil
 }
 
-// CheckPermission checks if a permission is assigned to a user
+// CheckPermission checks if a permission is assigned to the role that's assigned to the user.
 // it accepts the user id as the first parameter
 // the permission as the second parameter
-// it returns an error if the user donesn't have a rols assigned
-// it returns an error if the user's role doesn't have the permission assigned
 // it returns an error if the permission is not present in the database
 func (a *Authority) CheckPermission(userID uint, permName string) (bool, error) {
 	// the user role
-	var userRole UserRole
-	res := a.DB.Where("user_id = ?", userID).First(&userRole)
+	var userRoles []UserRole
+	res := a.DB.Where("user_id = ?", userID).Find(&userRoles)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return false, errors.New("user doesn't have a role assigned")
+			return false, nil
 		}
-
 	}
 
-	// fin the permission
+	//prepare an array of role ids
+	var roleIDs []uint
+	for _, r := range userRoles {
+		roleIDs = append(roleIDs, r.RoleID)
+	}
+
+	// find the permission
 	var perm Permission
 	res = a.DB.Where("name = ?", permName).First(&perm)
 	if res.Error != nil {
@@ -209,12 +212,9 @@ func (a *Authority) CheckPermission(userID uint, permName string) (bool, error) 
 
 	// find the role permission
 	var rolePermission RolePermission
-	res = a.DB.Where("role_id = ?", userRole.RoleID).Where("permission_id = ?", perm.ID).First(&rolePermission)
+	res = a.DB.Where("role_id IN (?)", roleIDs).Where("permission_id = ?", perm.ID).First(&rolePermission)
 	if res.Error != nil {
-		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return false, nil
-		}
-
+		return false, nil
 	}
 
 	return true, nil
@@ -284,9 +284,10 @@ func (a *Authority) RevokeRole(userID uint, roleName string) error {
 // RevokePermission revokes a permission from the user's assigned role
 // it returns an error in case of any
 func (a *Authority) RevokePermission(userID uint, permName string) error {
-	// find the user role
-	var userRole UserRole
-	res := a.DB.Where("user_id = ?", userID).First(&userRole)
+	// revoke the permission from all roles of the user
+	// find the user roles
+	var userRoles []UserRole
+	res := a.DB.Where("user_id = ?", userID).Find(&userRoles)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return errors.New("user doesn't have a role assgined")
@@ -304,8 +305,10 @@ func (a *Authority) RevokePermission(userID uint, permName string) error {
 
 	}
 
-	// revoke the permission
-	a.DB.Where("role_id = ?", userRole.RoleID).Where("permission_id = ?", perm.ID).Delete(RolePermission{})
+	for _, r := range userRoles {
+		// revoke the permission
+		a.DB.Where("role_id = ?", r.RoleID).Where("permission_id = ?", perm.ID).Delete(RolePermission{})
+	}
 
 	return nil
 }
@@ -347,6 +350,24 @@ func (a *Authority) GetRoles() ([]string, error) {
 
 	for _, role := range roles {
 		result = append(result, role.Name)
+	}
+
+	return result, nil
+}
+
+// GetUserRoles returns all user assigned roles
+func (a *Authority) GetUserRoles(userID uint) ([]string, error) {
+	var result []string
+	var userRoles []UserRole
+	a.DB.Where("user_id = ?", userID).Find(&userRoles)
+
+	for _, r := range userRoles {
+		var role Role
+		// for every user role get the role name
+		res := a.DB.Where("id = ?", r.RoleID).Find(&role)
+		if res.Error == nil {
+			result = append(result, role.Name)
+		}
 	}
 
 	return result, nil
