@@ -164,9 +164,8 @@ ok, err := auth.CheckRolePermission("role-a", "permission-a")
 ### func (a *Authority) RevokeRole(userID uint, roleName string) error
 RevokeRole revokes a user's role. it returns a error in case of any
 ```go
-err = auth.RevokeRolePermission("role-a", "permission-a")
+err = auth.RevokeRole(1, "role-a")
 ```
-
 
 ### func (a *Authority) RevokePermission(userID uint, permName string) error
 RevokePermission revokes a permission from the user's assigned role. it returns an error in case of any
