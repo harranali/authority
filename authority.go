@@ -11,17 +11,25 @@ type Authority struct {
 	DB *gorm.DB
 }
 
-// Options has the options for initating the package
+// Options has the options for initiating the package
 type Options struct {
 	TablesPrefix string
 	DB           *gorm.DB
 }
 
+var (
+	ErrPermissionInUse     = errors.New("cannot delete assigned permission")
+	ErrPermissionNotFound  = errors.New("permission not found")
+	ErrRoleAlreadyAssigned = errors.New("this role is already assigned to the user")
+	ErrRoleInUse           = errors.New("cannot delete assigned role")
+	ErrRoleNotFound        = errors.New("role not found")
+)
+
 var tablePrefix string
 
 var auth *Authority
 
-// New initates authority
+// New initiates authority
 func New(opts Options) *Authority {
 	tablePrefix = opts.TablesPrefix
 	auth = &Authority{
@@ -39,7 +47,7 @@ func Resolve() *Authority {
 
 // CreateRole stores a role in the database
 // it accepts the role name. it returns an error
-// incase of any
+// in case of any
 func (a *Authority) CreateRole(roleName string) error {
 	var dbRole Role
 	res := a.DB.Where("name = ?", roleName).First(&dbRole)
@@ -84,7 +92,7 @@ func (a *Authority) AssignPermissions(roleName string, permNames []string) error
 	rRes := a.DB.Where("name = ?", roleName).First(&role)
 	if rRes.Error != nil {
 		if errors.Is(rRes.Error, gorm.ErrRecordNotFound) {
-			return errors.New("role record not found")
+			return ErrRoleNotFound
 		}
 
 	}
@@ -96,7 +104,7 @@ func (a *Authority) AssignPermissions(roleName string, permNames []string) error
 		pRes := a.DB.Where("name = ?", permName).First(&perm)
 		if pRes.Error != nil {
 			if errors.Is(pRes.Error, gorm.ErrRecordNotFound) {
-				return errors.New("a permission record not found")
+				return ErrPermissionNotFound
 			}
 
 		}
@@ -131,7 +139,7 @@ func (a *Authority) AssignRole(userID uint, roleName string) error {
 	res := a.DB.Where("name = ?", roleName).First(&role)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return errors.New("missing role record")
+			return ErrRoleNotFound
 		}
 	}
 
@@ -140,7 +148,7 @@ func (a *Authority) AssignRole(userID uint, roleName string) error {
 	res = a.DB.Where("user_id = ?", userID).Where("role_id = ?", role.ID).First(&userRole)
 	if res.Error == nil {
 		//found a record, this role is already assigned to the same user
-		return errors.New("this role is already assinged to the user")
+		return ErrRoleAlreadyAssigned
 	}
 
 	// assign the role
@@ -159,12 +167,12 @@ func (a *Authority) CheckRole(userID uint, roleName string) (bool, error) {
 	res := a.DB.Where("name = ?", roleName).First(&role)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return false, errors.New("Role not found")
+			return false, ErrRoleNotFound
 		}
 
 	}
 
-	// check if the role is a ssigned
+	// check if the role is a assigned
 	var userRole UserRole
 	res = a.DB.Where("user_id = ?", userID).Where("role_id = ?", role.ID).First(&userRole)
 	if res.Error != nil {
@@ -202,7 +210,7 @@ func (a *Authority) CheckPermission(userID uint, permName string) (bool, error) 
 	res = a.DB.Where("name = ?", permName).First(&perm)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return false, errors.New("permission not found")
+			return false, ErrPermissionNotFound
 		}
 
 	}
@@ -228,7 +236,7 @@ func (a *Authority) CheckRolePermission(roleName string, permName string) (bool,
 	res := a.DB.Where("name = ?", roleName).First(&role)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return false, errors.New("role not found")
+			return false, ErrRoleNotFound
 		}
 
 	}
@@ -238,7 +246,7 @@ func (a *Authority) CheckRolePermission(roleName string, permName string) (bool,
 	res = a.DB.Where("name = ?", permName).First(&perm)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return false, errors.New("permission not found")
+			return false, ErrPermissionNotFound
 		}
 
 	}
@@ -264,7 +272,7 @@ func (a *Authority) RevokeRole(userID uint, roleName string) error {
 	res := a.DB.Where("name = ?", roleName).First(&role)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return errors.New("role not found")
+			return ErrRoleNotFound
 		}
 
 	}
@@ -294,7 +302,7 @@ func (a *Authority) RevokePermission(userID uint, permName string) error {
 	res = a.DB.Where("name = ?", permName).First(&perm)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return errors.New("permission not found")
+			return ErrPermissionNotFound
 		}
 
 	}
@@ -315,7 +323,7 @@ func (a *Authority) RevokeRolePermission(roleName string, permName string) error
 	res := a.DB.Where("name = ?", roleName).First(&role)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return errors.New("role not found")
+			return ErrRoleNotFound
 		}
 
 	}
@@ -325,7 +333,7 @@ func (a *Authority) RevokeRolePermission(roleName string, permName string) error
 	res = a.DB.Where("name = ?", permName).First(&perm)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return errors.New("permission not found")
+			return ErrPermissionNotFound
 		}
 
 	}
@@ -388,7 +396,7 @@ func (a *Authority) DeleteRole(roleName string) error {
 	res := a.DB.Where("name = ?", roleName).First(&role)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return errors.New("role not found")
+			return ErrRoleNotFound
 		}
 
 	}
@@ -398,7 +406,7 @@ func (a *Authority) DeleteRole(roleName string) error {
 	res = a.DB.Where("role_id = ?", role.ID).First(&userRole)
 	if res.Error == nil {
 		// role is assigned
-		return errors.New("cannot delete assigned role")
+		return ErrRoleInUse
 	}
 
 	// revoke the assignment of permissions before deleting the role
@@ -418,7 +426,7 @@ func (a *Authority) DeletePermission(permName string) error {
 	res := a.DB.Where("name = ?", permName).First(&perm)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return errors.New("permission not found")
+			return ErrPermissionNotFound
 		}
 
 	}
@@ -428,7 +436,7 @@ func (a *Authority) DeletePermission(permName string) error {
 	res = a.DB.Where("permission_id = ?", perm.ID).First(&rolePermission)
 	if res.Error == nil {
 		// role is assigned
-		return errors.New("cannot delete assigned permission")
+		return ErrPermissionInUse
 	}
 
 	// delete the permission
