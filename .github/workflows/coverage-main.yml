@@ -28,7 +28,7 @@ jobs:
 
     - name: Run Unit tests
       env:
-        ROOT_PASSWORD: ${{ env.DB_DATABASE }}
+        ROOT_PASSWORD: ${{ env.DB_PASSWORD }}
       run: |
         go test -race -covermode atomic -coverprofile=covprofile ./...
 

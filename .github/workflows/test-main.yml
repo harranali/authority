@@ -29,5 +29,5 @@ jobs:
 
     - name: Test
       env:
-        ROOT_PASSWORD: ${{ env.DB_DATABASE }}
+        ROOT_PASSWORD: ${{ env.DB_PASSWORD }}
       run: go test -v ./...
