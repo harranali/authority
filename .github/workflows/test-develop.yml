@@ -9,7 +9,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     env:
       DB_DATABASE: db_test
       DB_USER: root
@@ -29,5 +28,5 @@ jobs:
 
       - name: Test
         env:
-          ROOT_PASSWORD: ${{ secrets.ROOT_PASSWORD }}
+          ROOT_PASSWORD: ${{ env.DB_DATABASE }}
         run: go test -v ./...
