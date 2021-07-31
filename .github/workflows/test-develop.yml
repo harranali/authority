@@ -2,28 +2,32 @@ name: test-develop
 
 on:
   push:
-    branches: [ develop ]
+    branches: [develop]
   pull_request:
-    branches: [ develop ]
+    branches: [develop]
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
+
+    env:
+      DB_DATABASE: db_test
+      DB_USER: root
+      DB_PASSWORD: root
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.16
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16
 
-    - name: Set up Mysql
-      run: |
-        sudo /etc/init.d/mysql start
-        mysql -e 'CREATE DATABASE db_test' -u root -p root
+      - name: Set up Mysql
+        run: |
+          sudo /etc/init.d/mysql start
+          mysql -e 'CREATE DATABASE ${{ env.DB_DATABASE }};' -u${{ env.DB_USER }} -p${{ env.DB_PASSWORD }}
 
-    - name: Test
-      env:
-        ROOT_PASSWORD: ${{ secrets.ROOT_PASSWORD }}
-      run: go test -v ./...
+      - name: Test
+        env:
+          ROOT_PASSWORD: ${{ secrets.ROOT_PASSWORD }}
+        run: go test -v ./...
