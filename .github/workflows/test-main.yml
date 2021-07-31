@@ -10,6 +10,10 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    env:
+      DB_DATABASE: db_test
+      DB_USER: root
+      DB_PASSWORD: root
     steps:
     - uses: actions/checkout@v2
 
@@ -19,19 +23,11 @@ jobs:
         go-version: 1.16
 
     - name: Set up Mysql
-      uses: mirromutth/mysql-action@v1.1
-      with:
-        host port: 3306 # Optional, default value is 3306. The port of host
-        container port: 3306 # Optional, default value is 3306. The port of container
-        character set server: 'utf8' # Optional, default value is 'utf8mb4'. The '--character-set-server' option for mysqld
-        collation server: 'utf8_general_ci' # Optional, default value is 'utf8mb4_general_ci'. The '--collation-server' option for mysqld
-        mysql version: '5.7' # Optional, default value is "latest". The version of the MySQL
-        mysql database: 'db_test' # Optional, default value is "test". The specified database which will be create
-        mysql root password: ${{ secrets.ROOT_PASSWORD }} # Required if "mysql user" is empty, default is empty. The root superuser password
-        mysql user: 'developer' # Required if "mysql root password" is empty, default is empty. The superuser for the specified database. Can use secrets, too
-        mysql password: ${{ secrets.DEV_PASS }} # Required if "mysql user" exists. The password for the "mysql user"
+      run: |
+        sudo /etc/init.d/mysql start
+        mysql -e 'CREATE DATABASE ${{ env.DB_DATABASE }};' -u${{ env.DB_USER }} -p${{ env.DB_PASSWORD }}
 
     - name: Test
       env:
-        ROOT_PASSWORD: ${{ secrets.ROOT_PASSWORD }}
+        ROOT_PASSWORD: ${{ env.DB_PASSWORD }}
       run: go test -v ./...
