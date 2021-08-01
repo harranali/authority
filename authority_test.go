@@ -736,6 +736,47 @@ func TestGetUserRoles(t *testing.T) {
 	db.Where("name = ?", "role-b").Delete(authority.Role{})
 }
 
+func TestWithSessionExecutionOption(t *testing.T) {
+	auth := authority.New(authority.Options{
+		TablesPrefix: "authority_",
+		DB:           db,
+	})
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		err := auth.CreateRole("role-a", authority.WithSession(tx))
+		if err != nil {
+			t.Error("unexpected error while creating role:", err)
+		}
+
+		roles, err := auth.GetRoles()
+		if err != nil {
+			t.Error("unexpected error while getting roles:", err)
+		}
+
+		if len(roles) > 0 {
+			t.Error("no role was expected to be returned, got:", len(roles))
+		}
+
+		roles, err = auth.GetRoles(authority.WithSession(tx))
+		if err != nil {
+			t.Error("unexpected error while getting roles:", err)
+		}
+
+		if len(roles) != 1 {
+			t.Error("expected 1 role to be returned from DB when passing transaction to method, got:", len(roles))
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		t.Error("unexpected error while executing transaction: ", err)
+	}
+
+	// clean up
+	db.Where("name = ?", "role-a").Delete(authority.Role{})
+}
+
 func sliceHasString(s []string, val string) bool {
 	for _, v := range s {
 		if v == val {
