@@ -388,6 +388,23 @@ func (a *Authority) GetPermissions() ([]string, error) {
 	return result, nil
 }
 
+// GetRolePermissions returns all permission assigned roles
+func (a *Authority) GetRolePermissions(roleName string) []string {
+	var result []string
+	var rolePermission []RolePermission
+	var role Role
+	a.DB.Where("name = ?", roleName).First(&role)
+	a.DB.Where("role_id = ?", role.ID).Find(&rolePermission)
+	for _, r := range rolePermission {
+		var permission Permission
+		res := a.DB.Where("id = ?", r.PermissionID).Find(&permission)
+		if res.Error == nil {
+			result = append(result, permission.Name)
+		}
+	}
+	return result
+}
+
 // DeleteRole deletes a given role
 // if the role is assigned to a user it returns an error
 func (a *Authority) DeleteRole(roleName string) error {
