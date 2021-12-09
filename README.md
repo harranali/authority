@@ -6,7 +6,7 @@
 [![GoDoc](https://godoc.org/github.com/harranali/authority?status.svg)](https://godoc.org/github.com/harranali/authority)
 [![Coverage Status](https://coveralls.io/repos/github/harranali/authority/badge.svg?branch=main)](https://coveralls.io/github/harranali/authority?branch=main&cache=false)
 
-Role Based Access Control (RBAC) Go package with database persistence 
+Role Based Access Control (RBAC) Go package with database persistence
 # Features
 - Create Roles
 - Create Permissions
@@ -21,6 +21,7 @@ Role Based Access Control (RBAC) Go package with database persistence
 - List User's Roles
 - List All Roles
 - List All Permissions
+- List All Role's Permissions
 - Delete Roles
 - Delete Permissions
 
@@ -29,7 +30,7 @@ First get `authority`
 ```bash
 go get github.com/harranali/authority
 ```
-Next get the database driver for `gorm` that you will be using 
+Next get the database driver for `gorm` that you will be using
 ```bash
 # mysql 
 go get gorm.io/driver/mysql 
@@ -52,8 +53,8 @@ db, _ := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 
 // initiate authority
 auth := authority.New(authority.Options{
-    TablesPrefix: "authority_",
-    DB:           db,
+TablesPrefix: "authority_",
+DB:           db,
 })
 
 // create role
@@ -66,9 +67,9 @@ err = auth.CreatePermission("permission-3")
 
 // assign the permissions to the role
 err := auth.AssignPermissions("role-1", []string{
-    "permission-1",
-    "permission-2",
-    "permission-3",
+"permission-1",
+"permission-2",
+"permission-3",
 })
 
 // assign a role to user (user id = 1) 
@@ -92,8 +93,8 @@ dsn := "dbuser:dbpassword@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=T
 db, _ := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 
 auth := authority.New(authority.Options{
-    TablesPrefix: "authority_",
-    DB:           db,
+TablesPrefix: "authority_",
+DB:           db,
 })
 ```
 
@@ -125,9 +126,9 @@ AssignPermissions assigns a group of permissions to a given role it accepts in t
 ```go
 // assign the permissions to the role
 err := auth.AssignPermissions("role-1", []string{
-    "permission-1",
-    "permission-2",
-    "permission-3",
+"permission-1",
+"permission-2",
+"permission-3",
 })
 ```
 
@@ -140,7 +141,7 @@ err = auth.AssignRole(1, "role-a")
 ```
 
 
-### func (a *Authority) CheckRole(userID uint, roleName string) (bool, error) 
+### func (a *Authority) CheckRole(userID uint, roleName string) (bool, error)
 CheckRole checks if a role is assigned to a user. it accepts the user id as the first parameter. the role as the second parameter. it returns an error if the role is not present in database
 ```go
 // check if the user have a given role
@@ -186,7 +187,7 @@ GetRoles returns all stored roles
 roles, err := auth.GetRoles()
 ```
 
-### (a *Authority) GetUserRoles(userID uint) ([]string, error) 
+### (a *Authority) GetUserRoles(userID uint) ([]string, error)
 GetUserRoles returns user assigned roles
 ```go
 roles, err := auth.GetUserRoles(1)
@@ -198,13 +199,19 @@ GetPermissions retuns all stored permissions
 permissions, err := auth.GetPermissions()
 ```
 
+### func (a *Authority) GetRolePermissions(roleName string) []string
+GetRolePermissions retuns all permissions assigned roles
+```go
+permissions := auth.GetRolePermissions("role-b")
+```
+
 ### func (a *Authority) DeleteRole(roleName string) error
 DeleteRole deletes a given role. if the role is assigned to a user it returns an error
 ```go
 err := auth.DeleteRole("role-b")
 ```
 
-### func (a *Authority) DeletePermission(permName string) error 
+### func (a *Authority) DeletePermission(permName string) error
 DeletePermission deletes a given permission. if the permission is assigned to a role it returns an error
 ```go
 err := auth.DeletePermission("permission-c")
