@@ -1,14 +1,27 @@
 package authority
 
+////////// TODO ////////
+// - change user id to interface //////////
+// - add display name property for the roles permissions ////////////////
+// - update method names to more discriptive names //////////////
+// - fix unit tests ///////////////
+// - write unittest for Transaction() function ///////////////////
+// - fix the function doc blocks ////////
+// - write docs for testing transactions in readme.md /////////
+// - fix the readme.md file
+// - before push fix the dsn in the tests file
+
 import (
 	"errors"
+	"fmt"
 
 	"gorm.io/gorm"
 )
 
 // Authority helps deal with permissions
 type Authority struct {
-	DB *gorm.DB
+	TablesPrefix string
+	DB           *gorm.DB
 }
 
 // Options has the options for initiating the package
@@ -18,26 +31,38 @@ type Options struct {
 }
 
 var (
-	ErrPermissionInUse     = errors.New("cannot delete assigned permission")
-	ErrPermissionNotFound  = errors.New("permission not found")
-	ErrRoleAlreadyAssigned = errors.New("this role is already assigned to the user")
-	ErrRoleInUse           = errors.New("cannot delete assigned role")
-	ErrRoleNotFound        = errors.New("role not found")
+	ErrPermissionInUse    = errors.New("cannot delete assigned permission")
+	ErrPermissionNotFound = errors.New("permission not found")
+	ErrRoleInUse          = errors.New("cannot delete assigned role")
+	ErrRoleNotFound       = errors.New("role not found")
 )
 
 var tablePrefix string
 
 var auth *Authority
+var options Options
+var tx *gorm.DB
 
 // New initiates authority
 func New(opts Options) *Authority {
-	tablePrefix = opts.TablesPrefix
+	options = opts
 	auth = &Authority{
-		DB: opts.DB,
+		TablesPrefix: options.TablesPrefix,
+		DB:           opts.DB,
 	}
 
 	migrateTables(opts.DB)
 	return auth
+}
+
+// New initiates new instance of authority
+func newInstance(opts Options) *Authority {
+	newAuth := &Authority{
+		DB: opts.DB,
+	}
+
+	migrateTables(opts.DB)
+	return newAuth
 }
 
 // Resolve returns the initiated instance
@@ -45,210 +70,240 @@ func Resolve() *Authority {
 	return auth
 }
 
-// CreateRole stores a role in the database
-// it accepts the role name. it returns an error
-// in case of any
-func (a *Authority) CreateRole(roleName string) error {
+// Add a new role to the database
+// it accepts the Role struct as a parameter
+// it returns an error in case of any
+// it returns an error if the role is already exists
+func (a *Authority) CreateRole(r Role) error {
+	roleSlug := r.Slug
 	var dbRole Role
-	res := a.DB.Where("name = ?", roleName).First(&dbRole)
+	res := a.DB.Where("slug = ?", roleSlug).First(&dbRole)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			// create
-			a.DB.Create(&Role{Name: roleName})
+			createRes := a.DB.Create(&r)
+			if createRes.Error != nil {
+				return createRes.Error
+			}
 			return nil
 		}
+		return res.Error
 	}
 
-	return res.Error
+	return errors.New(fmt.Sprintf("role '%v' already exists", roleSlug))
 }
 
-// CreatePermission stores a permission in the database
-// it accepts the permission name. it returns an error
-// in case of any
-func (a *Authority) CreatePermission(permName string) error {
+// Add a new permission to the database
+// it accepts the Permission struct as a parameter
+// it returns an error in case of any
+// it returns an error if the permission is already exists
+func (a *Authority) CreatePermission(p Permission) error {
+	permSlug := p.Slug
 	var dbPerm Permission
-	res := a.DB.Where("name = ?", permName).First(&dbPerm)
+	res := a.DB.Where("slug = ?", permSlug).First(&dbPerm)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			// create
-			a.DB.Create(&Permission{Name: permName})
+			createRes := a.DB.Create(&p)
+			if createRes.Error != nil {
+				return createRes.Error
+			}
 			return nil
 		}
+		return res.Error
 	}
 
-	return res.Error
+	return errors.New(fmt.Sprintf("permission '%v' already exists", permSlug))
 }
 
-// AssignPermissions assigns a group of permissions to a given role
-// it accepts in the first parameter the role name, it returns an error if there is not matching record
-// of the role name in the database.
-// the second parameter is a slice of strings which represents a group of permissions to be assigned to the role
-// if any of these permissions doesn't have a matching record in the database the operations stops, changes reverted
-// and error is returned
-// in case of success nothing is returned
-func (a *Authority) AssignPermissions(roleName string, permNames []string) error {
-	// get the role id
+// Assigns a group of permissions to a given role
+// it accepts the the role slug as the first parameter
+// the second parameter is a slice of permission slugs (strings) to be assigned to the role
+// it returns an error in case of any
+// it returns an error in case the role does not exists
+// it returns an error in case any of the permissions does not exists
+// it returns an error in case any of the permissions is already assigned
+func (a *Authority) AssignPermissionsToRole(roleSlug string, permSlugs []string) error {
 	var role Role
-	rRes := a.DB.Where("name = ?", roleName).First(&role)
+	rRes := a.DB.Where("slug = ?", roleSlug).First(&role)
 	if rRes.Error != nil {
 		if errors.Is(rRes.Error, gorm.ErrRecordNotFound) {
 			return ErrRoleNotFound
 		}
-
+		return rRes.Error
 	}
-
 	var perms []Permission
-	// get the permissions ids
-	for _, permName := range permNames {
+	for _, permSlug := range permSlugs {
 		var perm Permission
-		pRes := a.DB.Where("name = ?", permName).First(&perm)
+		pRes := a.DB.Where("slug = ?", permSlug).First(&perm)
 		if pRes.Error != nil {
 			if errors.Is(pRes.Error, gorm.ErrRecordNotFound) {
 				return ErrPermissionNotFound
 			}
-
+			return pRes.Error
 		}
-
 		perms = append(perms, perm)
 	}
-
-	// insert data into RolePermissions table
+	tx := a.DB.Begin()
 	for _, perm := range perms {
-		// ignore any assigned permission
 		var rolePerm RolePermission
 		res := a.DB.Where("role_id = ?", role.ID).Where("permission_id =?", perm.ID).First(&rolePerm)
-		if res.Error != nil {
-			// assign the record
-			cRes := a.DB.Create(&RolePermission{RoleID: role.ID, PermissionID: perm.ID})
+		if res.Error != nil && errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			cRes := tx.Create(&RolePermission{RoleID: role.ID, PermissionID: perm.ID})
 			if cRes.Error != nil {
+				tx.Rollback()
 				return cRes.Error
 			}
 		}
+		if res.Error != nil && !errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			tx.Rollback()
+			return res.Error
+		}
+		if rolePerm != (RolePermission{}) {
+			tx.Rollback()
+			return errors.New(fmt.Sprintf("permission '%v' is aleady assigned to the role '%v'", perm.Name, role.Name))
+		}
+		rolePerm = RolePermission{}
 	}
-
-	return nil
+	return tx.Commit().Error
 }
 
-// AssignRole assigns a given role to a user
-// the first parameter is the user id, the second parameter is the role name
-// if the role name doesn't have a matching record in the data base an error is returned
-// if the user have already a role assigned to him an error is returned
-func (a *Authority) AssignRole(userID uint, roleName string) error {
-	// make sure the role exist
+// Assigns a role to a given user
+// it accepts the user id as the first parameter
+// the second parameter the role slug
+// it returns an error in case of any
+// it returns an error in case the role does not exists
+// it returns an error in case the role is already assigned
+func (a *Authority) AssignRoleToUser(userID interface{}, roleSlug string) error {
+	userIDStr := fmt.Sprintf("%v", userID)
 	var role Role
-	res := a.DB.Where("name = ?", roleName).First(&role)
+	res := a.DB.Where("slug = ?", roleSlug).First(&role)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return ErrRoleNotFound
 		}
+		return res.Error
 	}
-
-	// check if the role is already assigned
 	var userRole UserRole
-	res = a.DB.Where("user_id = ?", userID).Where("role_id = ?", role.ID).First(&userRole)
-	if res.Error == nil {
-		//found a record, this role is already assigned to the same user
-		return ErrRoleAlreadyAssigned
+	res = a.DB.Where("user_id = ?", userIDStr).Where("role_id = ?", role.ID).First(&userRole)
+	if res.Error != nil && errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		a.DB.Create(&UserRole{UserID: userIDStr, RoleID: role.ID})
+		return nil
+	}
+	if res.Error != nil && !errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return res.Error
 	}
 
-	// assign the role
-	a.DB.Create(&UserRole{UserID: userID, RoleID: role.ID})
-
-	return nil
+	return errors.New(fmt.Sprintf("this role '%v' is aleady assigned to the user", roleSlug))
 }
 
-// CheckRole checks if a role is assigned to a user
+// Checks if a role is assigned to a user
 // it accepts the user id as the first parameter
-// the role as the second parameter
-// it returns an error if the role is not present in database
-func (a *Authority) CheckRole(userID uint, roleName string) (bool, error) {
+// the second parameter the role slug
+// it returns two parameters
+// the first parameter of the return is a boolean represents whether the role is assigned or not
+// the second is an error in case of any
+// in case the role does not exists, an error is returned
+func (a *Authority) CheckUserRole(userID interface{}, roleSlug string) (bool, error) {
+	userIDStr := fmt.Sprintf("%v", userID)
 	// find the role
 	var role Role
-	res := a.DB.Where("name = ?", roleName).First(&role)
+	res := a.DB.Where("slug = ?", roleSlug).First(&role)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return false, ErrRoleNotFound
 		}
-
+		return false, res.Error
 	}
 
 	// check if the role is a assigned
 	var userRole UserRole
-	res = a.DB.Where("user_id = ?", userID).Where("role_id = ?", role.ID).First(&userRole)
+	res = a.DB.Where("user_id = ?", userIDStr).Where("role_id = ?", role.ID).First(&userRole)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
-
+		return false, res.Error
 	}
 
 	return true, nil
 }
 
-// CheckPermission checks if a permission is assigned to the role that's assigned to the user.
-// it accepts the user id as the first parameter
-// the permission as the second parameter
-// it returns an error if the permission is not present in the database
-func (a *Authority) CheckPermission(userID uint, permName string) (bool, error) {
+// Checks if a permission is assigned to a user
+// it accepts in the user id as the first parameter
+// the second parameter the role slug
+// it returns two parameters
+// the first parameter of the return is a boolean represents whether the role is assigned or not
+// the second is an error in case of any
+// in case the role does not exists, an error is returned
+func (a *Authority) CheckUserPermission(userID interface{}, permSlug string) (bool, error) {
+	userIDStr := fmt.Sprintf("%v", userID)
 	// the user role
 	var userRoles []UserRole
-	res := a.DB.Where("user_id = ?", userID).Find(&userRoles)
+	res := a.DB.Where("user_id = ?", userIDStr).Find(&userRoles)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
+		return false, res.Error
 	}
 
 	//prepare an array of role ids
-	var roleIDs []uint
+	var roleIDs []interface{}
 	for _, r := range userRoles {
 		roleIDs = append(roleIDs, r.RoleID)
 	}
 
 	// find the permission
 	var perm Permission
-	res = a.DB.Where("name = ?", permName).First(&perm)
+	res = a.DB.Where("slug = ?", permSlug).First(&perm)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return false, ErrPermissionNotFound
 		}
-
+		return false, res.Error
 	}
 
 	// find the role permission
 	var rolePermission RolePermission
 	res = a.DB.Where("role_id IN (?)", roleIDs).Where("permission_id = ?", perm.ID).First(&rolePermission)
-	if res.Error != nil {
+	if res.Error != nil && errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		return false, nil
+	}
+	if res.Error != nil && !errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return false, res.Error
 	}
 
 	return true, nil
 }
 
-// CheckRolePermission checks if a role has the permission assigned
-// it accepts the role as the first parameter
-// it accepts the permission as the second parameter
-// it returns an error if the role is not present in database
-// it returns an error if the permission is not present in database
-func (a *Authority) CheckRolePermission(roleName string, permName string) (bool, error) {
+// Checks if a permission is assigned to a role
+// it accepts in the role slug as the first parameter
+// the second parameter the permission slug
+// it returns two parameters
+// the first parameter of the return is a boolean represents whether the permission is assigned or not
+// the second is an error in case of any
+// in case the role does not exists, an error is returned
+// in case the permission does not exists, an error is returned
+func (a *Authority) CheckRolePermission(roleSlug string, permSlug string) (bool, error) {
 	// find the role
 	var role Role
-	res := a.DB.Where("name = ?", roleName).First(&role)
+	res := a.DB.Where("slug = ?", roleSlug).First(&role)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return false, ErrRoleNotFound
 		}
-
+		return false, res.Error
 	}
 
 	// find the permission
 	var perm Permission
-	res = a.DB.Where("name = ?", permName).First(&perm)
+	res = a.DB.Where("slug = ?", permSlug).First(&perm)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return false, ErrPermissionNotFound
 		}
-
+		return false, res.Error
 	}
 
 	// find the rolePermission
@@ -258,191 +313,239 @@ func (a *Authority) CheckRolePermission(roleName string, permName string) (bool,
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
-
+		return false, res.Error
 	}
 
 	return true, nil
 }
 
-// RevokeRole revokes a user's role
+// Revokes a user's role
 // it returns a error in case of any
-func (a *Authority) RevokeRole(userID uint, roleName string) error {
+// in case the role does not exists, an error is returned
+func (a *Authority) RevokeUserRole(userID interface{}, roleSlug string) error {
+	userIDStr := fmt.Sprintf("%v", userID)
 	// find the role
 	var role Role
-	res := a.DB.Where("name = ?", roleName).First(&role)
+	res := a.DB.Where("slug = ?", roleSlug).First(&role)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return ErrRoleNotFound
 		}
-
+		return res.Error
 	}
 
 	// revoke the role
-	a.DB.Where("user_id = ?", userID).Where("role_id = ?", role.ID).Delete(UserRole{})
-
-	return nil
-}
-
-// RevokePermission revokes a permission from the user's assigned role
-// it returns an error in case of any
-func (a *Authority) RevokePermission(userID uint, permName string) error {
-	// revoke the permission from all roles of the user
-	// find the user roles
-	var userRoles []UserRole
-	res := a.DB.Where("user_id = ?", userID).Find(&userRoles)
-	if res.Error != nil {
-		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return nil
-		}
-
-	}
-
-	// find the permission
-	var perm Permission
-	res = a.DB.Where("name = ?", permName).First(&perm)
-	if res.Error != nil {
-		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return ErrPermissionNotFound
-		}
-
-	}
-
-	for _, r := range userRoles {
-		// revoke the permission
-		a.DB.Where("role_id = ?", r.RoleID).Where("permission_id = ?", perm.ID).Delete(RolePermission{})
+	rRes := a.DB.Where("user_id = ?", userIDStr).Where("role_id = ?", role.ID).Delete(UserRole{})
+	if rRes.Error != nil {
+		return rRes.Error
 	}
 
 	return nil
 }
 
-// RevokeRolePermission revokes a permission from a given role
-// it returns an error in case of any
-func (a *Authority) RevokeRolePermission(roleName string, permName string) error {
+// Revokes a roles's permission
+// it returns a error in case of any
+// in case the role does not exists, an error is returned
+// in case the permission does not exists, an error is returned
+func (a *Authority) RevokeRolePermission(roleSlug string, permSlug string) error {
 	// find the role
 	var role Role
-	res := a.DB.Where("name = ?", roleName).First(&role)
+	res := a.DB.Where("slug = ?", roleSlug).First(&role)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return ErrRoleNotFound
 		}
-
+		return res.Error
 	}
 
 	// find the permission
 	var perm Permission
-	res = a.DB.Where("name = ?", permName).First(&perm)
+	res = a.DB.Where("slug = ?", permSlug).First(&perm)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return ErrPermissionNotFound
 		}
-
+		return res.Error
 	}
 
 	// revoke the permission
-	a.DB.Where("role_id = ?", role.ID).Where("permission_id = ?", perm.ID).Delete(RolePermission{})
+	rRes := a.DB.Where("role_id = ?", role.ID).Where("permission_id = ?", perm.ID).Delete(RolePermission{})
+	if rRes.Error != nil {
+		return rRes.Error
+	}
 
 	return nil
 }
 
-// GetRoles returns all stored roles
-func (a *Authority) GetRoles() ([]string, error) {
-	var result []string
+// Returns all stored roles
+// it returns an error in case of any
+func (a *Authority) GetAllRoles() ([]Role, error) {
 	var roles []Role
-	a.DB.Find(&roles)
-
-	for _, role := range roles {
-		result = append(result, role.Name)
+	res := a.DB.Find(&roles)
+	if res.Error != nil {
+		return nil, res.Error
 	}
 
-	return result, nil
+	return roles, nil
 }
 
-// GetUserRoles returns all user assigned roles
-func (a *Authority) GetUserRoles(userID uint) ([]string, error) {
-	var result []string
+// Returns all user assigned roles
+// it returns an error in case of any
+func (a *Authority) GetUserRoles(userID interface{}) ([]Role, error) {
+	userIDStr := fmt.Sprintf("%v", userID)
 	var userRoles []UserRole
-	a.DB.Where("user_id = ?", userID).Find(&userRoles)
+	res := a.DB.Where("user_id = ?", userIDStr).Find(&userRoles)
+	if res.Error != nil {
+		return nil, res.Error
+	}
 
+	var roleIDs []interface{}
 	for _, r := range userRoles {
-		var role Role
-		// for every user role get the role name
-		res := a.DB.Where("id = ?", r.RoleID).Find(&role)
-		if res.Error == nil {
-			result = append(result, role.Name)
-		}
+		roleIDs = append(roleIDs, r.RoleID)
 	}
 
-	return result, nil
+	var roles []Role
+	res = a.DB.Where("id IN (?)", roleIDs).Find(&roles)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+
+	return roles, nil
 }
 
-// GetPermissions returns all stored permissions
-func (a *Authority) GetPermissions() ([]string, error) {
-	var result []string
+// Returns all role assigned permissions
+// it returns an error in case of any
+func (a *Authority) GetRolePermissions(roleSlug string) ([]Permission, error) {
+	var role Role
+	res := a.DB.Where("slug = ?", roleSlug).Find(&role)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+
+	var rolePerms []RolePermission
+	res = a.DB.Where("role_id = ?", role.ID).Find(&rolePerms)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	var permIDs []interface{}
+	for _, rolePerm := range rolePerms {
+		permIDs = append(permIDs, rolePerm.PermissionID)
+	}
+
 	var perms []Permission
-	a.DB.Find(&perms)
-
-	for _, perm := range perms {
-		result = append(result, perm.Name)
+	res = a.DB.Where("id IN (?)", permIDs).Find(&perms)
+	if res.Error != nil {
+		return nil, res.Error
 	}
 
-	return result, nil
+	return perms, nil
 }
 
-// DeleteRole deletes a given role
+// Returns all stored permissions
+// it returns an error in case of any
+func (a *Authority) GetAllPermissions() ([]Permission, error) {
+	var perms []Permission
+	res := a.DB.Find(&perms)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+
+	return perms, nil
+}
+
+// Deletes a given role even if it's has assigned permissions
+// it first deassign the permissions and then proceed with deleting the role
+// it accepts the role slug as a parameter
+// it returns an error in case of any
 // if the role is assigned to a user it returns an error
-func (a *Authority) DeleteRole(roleName string) error {
+func (a *Authority) DeleteRole(roleSlug string) error {
 	// find the role
 	var role Role
-	res := a.DB.Where("name = ?", roleName).First(&role)
+	res := a.DB.Where("slug = ?", roleSlug).First(&role)
 	if res.Error != nil {
-		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return ErrRoleNotFound
-		}
-
+		return res.Error
 	}
 
 	// check if the role is assigned to a user
-	var userRole UserRole
-	res = a.DB.Where("role_id = ?", role.ID).First(&userRole)
-	if res.Error == nil {
+	var c int64
+	res = a.DB.Model(UserRole{}).Where("role_id = ?", role.ID).Count(&c)
+	if res.Error != nil {
+		return res.Error
+	}
+
+	if c != 0 {
 		// role is assigned
 		return ErrRoleInUse
 	}
-
+	tx := a.DB.Begin()
 	// revoke the assignment of permissions before deleting the role
-	a.DB.Where("role_id = ?", role.ID).Delete(RolePermission{})
+	dRes := tx.Where("role_id = ?", role.ID).Delete(RolePermission{})
+	if dRes.Error != nil {
+		tx.Rollback()
+		return dRes.Error
+	}
 
 	// delete the role
-	a.DB.Where("name = ?", roleName).Delete(Role{})
+	dRes = a.DB.Where("slug = ?", roleSlug).Delete(Role{})
+	if dRes.Error != nil {
+		tx.Rollback()
+		return dRes.Error
+	}
 
-	return nil
+	return tx.Commit().Error
 }
 
-// DeletePermission deletes a given permission
+// Deletes a given permission
+// it accepts the permission slug as a parameter
+// it returns an error in case of any
 // if the permission is assigned to a role it returns an error
-func (a *Authority) DeletePermission(permName string) error {
+func (a *Authority) DeletePermission(permSlug string) error {
 	// find the permission
 	var perm Permission
-	res := a.DB.Where("name = ?", permName).First(&perm)
+	res := a.DB.Where("slug = ?", permSlug).First(&perm)
 	if res.Error != nil {
-		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			return ErrPermissionNotFound
-		}
-
+		return res.Error
 	}
 
 	// check if the permission is assigned to a role
 	var rolePermission RolePermission
 	res = a.DB.Where("permission_id = ?", perm.ID).First(&rolePermission)
+	if res.Error != nil && !errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return res.Error
+	}
+
 	if res.Error == nil {
-		// role is assigned
 		return ErrPermissionInUse
 	}
 
 	// delete the permission
-	a.DB.Where("name = ?", permName).Delete(Permission{})
+	dRes := a.DB.Where("slug = ?", permSlug).Delete(Permission{})
+	if dRes.Error != nil {
+		return dRes.Error
+	}
 
 	return nil
+}
+
+// Begin a transaction session
+func (a *Authority) BeginTX() *Authority {
+	tx = options.DB.Begin()
+	newAuth := newInstance(Options{
+		TablesPrefix: options.TablesPrefix,
+		DB:           tx,
+	})
+
+	return newAuth
+}
+
+// Rolback previous queries
+func (a *Authority) Rollback() error {
+	return tx.Rollback().Error
+}
+
+// Commit queries to the database
+func (a *Authority) Commit() error {
+	return tx.Commit().Error
 }
 
 func migrateTables(db *gorm.DB) {

@@ -1,13 +1,13 @@
 package authority
 
-// RolePermission stores the relationship between roles and permissions
+// The link between the roles and permissions
 type RolePermission struct {
-	ID           uint
-	RoleID       uint
-	PermissionID uint
+	ID           uint // Unique id (it gets set automatically by the database)
+	RoleID       uint // Role id
+	PermissionID uint // Permission id
 }
 
 // TableName sets the table name
 func (r RolePermission) TableName() string {
-	return tablePrefix + "role_permissions"
+	return auth.TablesPrefix + "role_permissions"
 }
