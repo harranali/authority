@@ -8,28 +8,29 @@
 
 Role Based Access Control (RBAC) Go package with database persistence 
 # Features
+- Database Transactions
 - Create Roles
 - Create Permissions
 - Assign Permissions to Roles
-- Assign Multiple Roles to Users
-- Check User's Roles
-- Check User's Permissions
-- Check Role's Permissions
+- Supports Assigning Multiple Roles to Users
+- Check if a user have a given roles
+- Check if a user have a given permission
+- Check if a role have a given permission
 - Revoke User's Roles
-- Revoke User's Permissions
 - Revoke Role's permissions
-- List User's Roles
-- List All Roles
-- List All Permissions
-- Delete Roles
-- Delete Permissions
+- List all roles assigned to a given user
+- List all roles in the database
+- List all permissions assigned to a given role
+- List all Permissions in the database
+- Delete a given role
+- Delete a given permission
 
 # Install
-First get `authority`
+1. Go get the package
 ```bash
 go get github.com/harranali/authority
 ```
-Next get the database driver for `gorm` that you will be using 
+2. `Authority` uses the `orm` [gorm](https://gorm.io) to communicate with the database. [gorm](https://gorm.io) needs a database driver in order to work properly. you can install the database driver by runnig a command from the list below, for example if you are using `mysql` database, simply run `go get gorm.io/driver/mysql` and so.
 ```bash
 # mysql 
 go get gorm.io/driver/mysql 
@@ -57,31 +58,52 @@ auth := authority.New(authority.Options{
 })
 
 // create role
-err := auth.CreateRole("role-1")
-
-// create permissions
-err := auth.CreatePermission("permission-1")
-err = auth.CreatePermission("permission-2")
-err = auth.CreatePermission("permission-3")
-
-// assign the permissions to the role
-err := auth.AssignPermissions("role-1", []string{
-    "permission-1",
-    "permission-2",
-    "permission-3",
+err = auth.CreateRole(authority.Role{
+	Name: "Role 1",
+	Slug: "role-1",
 })
 
-// assign a role to user (user id = 1) 
-err = auth.AssignRole(1, "role-a")
+// create permissions
+err = auth.CreatePermission(authority.Permission{
+	Name: "Permission 1",
+	Slug: "permission-1",
+})
+err = auth.CreatePermission(authority.Permission{
+	Name: "Permission 2",
+	Slug: "permission-2",
+})
+err = auth.CreatePermission(authority.Permission{
+	Name: "Permission 3",
+	Slug: "permission-3",
+})
+
+// assign the permissions to the role
+err = auth.AssignPermissionsToRole("role-1", []string{
+	"permission-1",
+	"permission-2",
+	"permission-3",
+})
+
+// assign a role to user (user id = 1)
+err = auth.AssignRoleToUser(1, "role-1")
 
 // check if the user have a given role
-ok, err := auth.CheckRole(1, "role-a")
+ok, err := auth.CheckUserRole(1, "role-a")
+if ok {
+	fmt.Println("yes, user has the role assigned")
+}
 
-// check if a user have a given permission 
-ok, err := auth.CheckPermission(1, "permission-d")
+// check if a user have a given permission
+ok, err = auth.CheckUserPermission(1, "permission-d")
+if ok {
+	fmt.Println("yes, user has the permission assigned")
+}
 
 // check if a role have a given permission
-ok, err := auth.CheckRolePermission("role-a", "permission-a")
+ok, err = auth.CheckRolePermission("role-a", "permission-a")
+if ok {
+	fmt.Println("yes, role has the permission assigned")
+}
 ```
 
 # Docs
@@ -103,25 +125,42 @@ Resolve returns the initiated instance
 auth := authority.Resolve()
 ```
 
-###  func (a *Authority) CreateRole(roleName string) error
-CreateRole stores a role in the database it accepts the role name. it returns an error incase of any
+###  func (a *Authority) CreateRole(r authority.Role) error
+Add a new role to the database
+it accepts the Role struct as a parameter
+it returns an error in case of any
+it returns an error if the role is already exists
+
 ```go
 // create role
-err := auth.CreateRole("role-1")
+err = auth.CreateRole(authority.Role{
+	Name: "Role 1",
+	Slug: "role-1",
+})
 ```
 
-### func (a *Authority) CreatePermission(permName string) error
-CreatePermission stores a permission in the database it accepts the permission name. it returns an error in case of any
+### func (a *Authority) CreatePermission(p authority.Permission) error
+Add a new permission to the database
+it accepts the Permission struct as a parameter
+it returns an error in case of any
+it returns an error if the permission is already exists
 ```go
-// create permissions
-err := auth.CreatePermission("permission-1")
-err = auth.CreatePermission("permission-2")
-err = auth.CreatePermission("permission-3")
+// create a permission
+err = auth.CreatePermission(authority.Permission{
+	Name: "Permission 1",
+	Slug: "permission-1",
+})
 ```
 
 
-### func (a *Authority) AssignPermissions(roleName string, permNames []string) error
-AssignPermissions assigns a group of permissions to a given role it accepts in the first parameter the role name, it returns an error if there is not  matching record of the role name in the database. the second parameter is a slice of strings which represents a group of permissions to be assigned to the role. if any of these permissions doesn't have a matching record in the database, the operations stops, changes reverted and an error is returned. in case of success nothing is returned
+### func (a *Authority) AssignPermissionsToRole(roleSlug string, permSlugs []string) error
+Assigns a group of permissions to a given role
+it accepts the the role slug as the first parameter
+the second parameter is a slice of permission slugs (strings) to be assigned to the role
+it returns an error in case of any
+it returns an error in case the role does not exists
+it returns an error in case any of the permissions does not exists
+it returns an error in case any of the permissions is already assigned
 ```go
 // assign the permissions to the role
 err := auth.AssignPermissions("role-1", []string{
@@ -132,80 +171,168 @@ err := auth.AssignPermissions("role-1", []string{
 ```
 
 
-### func (a *Authority) AssignRole(userID uint, roleName string) error
-AssignRole assigns a given role to a user, you can assign multiple roles to a user, the first parameter is the user id, the second parameter is the role name. if the role name doesn't have a matching record in the database an error is returned.
+### func (a *Authority) AssignRoleToUser(userID interface{}, roleSlug string) error
+Assigns a role to a given user
+it accepts the user id as the first parameter
+the second parameter the role slug
+it returns an error in case of any
+it returns an error in case the role does not exists
+it returns an error in case the role is already assigned
 ```go
 // assign a role to user (user id) 
-err = auth.AssignRole(1, "role-a")
+err = auth.AssignRoleToUser(1, "role-a")
 ```
 
 
-### func (a *Authority) CheckRole(userID uint, roleName string) (bool, error) 
-CheckRole checks if a role is assigned to a user. it accepts the user id as the first parameter. the role as the second parameter. it returns an error if the role is not present in database
+### func (a *Authority) CheckUserRole(userID interface{}, roleSlug string) (bool, error) 
+Checks if a role is assigned to a user
+it accepts the user id as the first parameter
+the second parameter the role slug
+it returns two parameters
+the first parameter of the return is a boolean represents whether the role is assigned or not
+the second is an error in case of any
+in case the role does not exists, an error is returned
 ```go
 // check if the user have a given role
-ok, err := auth.CheckRole(1, "role-a")
+ok, err := auth.CheckUserRole(1, "role-a")
 ```
 
-### func (a *Authority) CheckPermission(userID uint, permName string) (bool, error)
-CheckPermission checks if a permission is assigned to the role that's assigned to the user. it accepts the user id as the first parameter. the permission as the second parameter.  it returns an error if the permission is not present in the database
+### func (a *Authority) CheckUserPermission(userID interface{}, permSlug string) (bool, error)
+Checks if a permission is assigned to a user
+it accepts in the user id as the first parameter
+the second parameter the role slug
+it returns two parameters
+the first parameter of the return is a boolean represents whether the role is assigned or not
+the second is an error in case of any
+in case the role does not exists, an error is returned
 ```go
 // check if a user have a given permission 
-ok, err := auth.CheckPermission(1, "permission-d")
+ok, err := auth.CheckUserPermission(1, "permission-d")
 ```
 
-### func (a *Authority) CheckRolePermission(roleName string, permName string) (bool, error)
-CheckRolePermission checks if a role has the permission assigned. it accepts the role as the first parameter. it accepts the permission as the second parameter. it returns an error if the role is not present in database. it returns an error if the permission is not present in database
+### func (a *Authority) CheckRolePermission(roleSlug string, permSlug string) (bool, error)
+Checks if a permission is assigned to a role
+it accepts in the role slug as the first parameter
+the second parameter the permission slug
+it returns two parameters
+the first parameter of the return is a boolean represents whether the permission is assigned or not
+the second is an error in case of any
+in case the role does not exists, an error is returned
+in case the permission does not exists, an error is returned
 ```go
 // check if a role have a given permission
 ok, err := auth.CheckRolePermission("role-a", "permission-a")
 ```
 
-### func (a *Authority) RevokeRole(userID uint, roleName string) error
-RevokeRole revokes a user's role. it returns a error in case of any
+### func (a *Authority) RevokeUserRole(userID interface{}, roleSlug string) error 
+Revokes a user's role
+it returns a error in case of any
+in case the role does not exists, an error is returned
 ```go
-err = auth.RevokeRole(1, "role-a")
+err = auth.RevokeUserRole(1, "role-a")
 ```
 
-### func (a *Authority) RevokePermission(userID uint, permName string) error
-RevokePermission revokes a permission from the user's assigned role. it returns an error in case of any
-```go
-err = auth.RevokePermission(1, "permission-a")
-```
-
-
-### func (a *Authority) RevokeRolePermission(roleName string, permName string) error
-RevokeRolePermission revokes a permission from a given role  it returns an error in case of any
+### func (a *Authority) RevokeRolePermission(roleSlug string, permSlug string) error 
+Revokes a roles's permission
+it returns a error in case of any
+in case the role does not exists, an error is returned
+in case the permission does not exists, an error is returned
 ```go
 err = auth.RevokeRolePermission("role-a", "permission-a")
 ```
 
-### func (a *Authority) GetRoles() ([]string, error)
-GetRoles returns all stored roles
+### func (a *Authority) GetAllRoles() ([]Role, error)
+Returns all stored roles
+it returns an error in case of any
 ```go
-roles, err := auth.GetRoles()
+roles, err := auth.GetAllRoles()
 ```
 
-### (a *Authority) GetUserRoles(userID uint) ([]string, error) 
-GetUserRoles returns user assigned roles
+### func (a *Authority) GetUserRoles(userID interface{}) ([]Role, error) 
+Returns all user assigned roles
+it returns an error in case of any
 ```go
 roles, err := auth.GetUserRoles(1)
 ```
 
-### func (a *Authority) GetPermissions() ([]string, error)
-GetPermissions retuns all stored permissions
+### func (a *Authority) GetRolePermissions(roleSlug string) ([]Permission, error) 
+Returns all role assigned permissions
+it returns an error in case of any
 ```go
-permissions, err := auth.GetPermissions()
+permissions, err := auth.GetRolePermissions("role-a")
 ```
 
-### func (a *Authority) DeleteRole(roleName string) error
-DeleteRole deletes a given role. if the role is assigned to a user it returns an error
+### func (a *Authority) GetAllPermissions() ([]Permission, error)
+Returns all stored permissions
+it returns an error in case of any
+```go
+permissions, err := auth.GetAllPermissions()
+```
+
+### func (a *Authority) DeleteRole(roleSlug string) error 
+Deletes a given role even if it's has assigned permissions
+it first deassign the permissions and then proceed with deleting the role
+it accepts the role slug as a parameter
+it returns an error in case of any
+if the role is assigned to a user it returns an error
 ```go
 err := auth.DeleteRole("role-b")
 ```
 
-### func (a *Authority) DeletePermission(permName string) error 
-DeletePermission deletes a given permission. if the permission is assigned to a role it returns an error
+### func (a *Authority) DeletePermission(permSlug string) error
+Deletes a given permission
+it accepts the permission slug as a parameter
+it returns an error in case of any
+if the permission is assigned to a role it returns an error
 ```go
 err := auth.DeletePermission("permission-c")
+```
+
+### Transactions
+`authority` supports database transactions by implementing 3 methods `BeginTX()`, `Rollback()`, and `Commit()`
+here is an example of how to use transactions
+```go
+
+// begin a transaction session
+tx := auth.BeginTX()
+// create role
+err = tx.CreateRole(authority.Role{
+	Name: "Role 1",
+	Slug: "role-1",
+})
+if err != nil {
+    tx.Rollback() // transaction rollback incase of error
+    fmt.Println("error creating role", err)
+}
+
+// create permissions
+err = tx.CreatePermission(authority.Permission{
+	Name: "Permission 1",
+	Slug: "permission-1",
+})
+if err != nil {
+    tx.Rollback() // transaction rollback incase of error
+    fmt.Println("error creating permission", err)
+}
+
+// assign the permissions to the role
+err = tx.AssignPermissionsToRole("role-1", []string{
+	"permission-1",
+	"permission-2",
+	"permission-3",
+})
+
+if err != nil {
+    tx.Rollback() // transaction rollback incase of error
+    fmt.Println("error assigning permission to role", err)
+}
+// assign a role to user (user id = 1)
+err = tx.AssignRoleToUser(1, "role-1")
+if err != nil {
+    tx.Rollback() // transaction rollback incase of error
+    fmt.Println("error assigning role to user", err)
+}
+
+// commit the operations to the database
+tx.Commit()
 ```

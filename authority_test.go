@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 		dsn = fmt.Sprintf("root:%s@tcp(127.0.0.1:3306)/db_test?charset=utf8mb4&parseTime=True&loc=Local",
 			os.Getenv("ROOT_PASSWORD"))
 	} else {
-		dsn = "root:@tcp(127.0.0.1:3306)/db_test?charset=utf8mb4&parseTime=True&loc=Local"
+		dsn = "root:root@tcp(127.0.0.1:3306)/db_test?charset=utf8mb4&parseTime=True&loc=Local"
 	}
 
 	db, _ = gorm.Open(mysql.Open(dsn), &gorm.Config{
@@ -38,38 +38,43 @@ func TestMain(m *testing.M) {
 }
 
 func TestCreateRole(t *testing.T) {
-
 	auth := authority.New(authority.Options{
 		TablesPrefix: "authority_",
 		DB:           db,
 	})
 
 	// test create role
-	err := auth.CreateRole("role-a")
+	err := auth.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
 	if err != nil {
 		t.Error("an error was not expected while creating role ", err)
 	}
 
 	var c int64
-	res := db.Model(authority.Role{}).Where("name = ?", "role-a").Count(&c)
+	res := db.Model(authority.Role{}).Where("slug = ?", "role-a").Count(&c)
 	if res.Error != nil {
-		t.Error("unexpected error while storing role: ", err)
+		t.Error("failed test create role", res.Error)
 	}
 	if c == 0 {
-		t.Error("role has not been stored")
+		t.Error("failed test create role ")
 	}
 
 	// test duplicated entries
-	auth.CreateRole("role-a")
-	auth.CreateRole("role-a")
-	auth.CreateRole("role-a")
-	db.Model(authority.Role{}).Where("name = ?", "role-a").Count(&c)
-	if c > 1 {
-		t.Error("unexpected duplicated entries for role")
+	err = auth.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
+	if err == nil {
+		t.Error("failed test create role")
 	}
 
-	// clean up
-	db.Where("name = ?", "role-a").Delete(authority.Role{})
+	t.Cleanup(func() {
+		// clean up
+		db.Where("slug = ?", "role-a").Delete(authority.Role{})
+	})
+
 }
 
 func TestCreatePermission(t *testing.T) {
@@ -78,265 +83,320 @@ func TestCreatePermission(t *testing.T) {
 		DB:           db,
 	})
 
-	// test create permission
-	err := auth.CreatePermission("permission-a")
+	err := auth.CreatePermission(authority.Permission{
+		Name: "Permission A",
+		Slug: "permission-a",
+	})
 	if err != nil {
-		t.Error("an error was not expected while creating permision ", err)
+		t.Error("failed test create permission", err)
 	}
 
 	var c int64
-	res := db.Model(authority.Permission{}).Where("name = ?", "permission-a").Count(&c)
+	res := db.Model(authority.Permission{}).Where("slug = ?", "permission-a").Count(&c)
 	if res.Error != nil {
-		t.Error("unexpected error while storing permission: ", err)
+		t.Error("failed test create permission", res.Error)
 	}
-	if c == 0 {
+	if c != 1 {
 		t.Error("permission has not been stored")
 	}
 
 	// test duplicated entries
-	auth.CreatePermission("permission-a")
-	auth.CreatePermission("permission-a")
-	auth.CreatePermission("permission-a")
-	db.Model(authority.Role{}).Where("name = ?", "permission-a").Count(&c)
-	if c > 1 {
-		t.Error("unexpected duplicated entries for permission")
+	err = auth.CreatePermission(authority.Permission{
+		Name: "Permission A",
+		Slug: "permission-a",
+	})
+	if err == nil {
+		t.Error("failed test create permission")
 	}
 
-	// clean up
-	db.Where("name = ?", "permission-a").Delete(authority.Permission{})
+	db.Model(authority.Role{}).Where("slug = ?", "permission-a").Count(&c)
+	if c > 1 {
+		t.Error("failed test create permission")
+	}
+
+	t.Cleanup(func() {
+		// clean up
+		db.Where("slug = ?", "permission-a").Delete(authority.Permission{})
+	})
+
 }
 
-func TestAssignPermission(t *testing.T) {
+func TestAssignPermissionToRole(t *testing.T) {
 	auth := authority.New(authority.Options{
 		TablesPrefix: "authority_",
 		DB:           db,
 	})
-
-	// first create a role
-	err := auth.CreateRole("role-a")
+	err := auth.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating role.", err)
+		t.Error("failed test assign permission to role", err)
 	}
-
-	// second test create permissions
-	err = auth.CreatePermission("permission-a")
+	err = auth.CreatePermission(authority.Permission{
+		Name: "Permission A",
+		Slug: "permission-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating permission to be assigned.", err)
+		t.Error("failed test assign permission to role", err)
 	}
-	err = auth.CreatePermission("permission-b")
+	err = auth.CreatePermission(authority.Permission{
+		Name: "Permission B",
+		Slug: "permission-b",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating permission to be assigned.", err)
+		t.Error("failed test assign permission to role", err)
 	}
 
 	// assign the permissions
-	err = auth.AssignPermissions("role-a", []string{"permission-a", "permission-b"})
+	err = auth.AssignPermissionsToRole("role-a", []string{"permission-a", "permission-b"})
 	if err != nil {
-		t.Error("unexpected error while assigning permissions.", err)
+		t.Error("failed test assign permission to role", err)
 	}
 
 	// assign to missing role
-	err = auth.AssignPermissions("role-aa", []string{"permission-a", "permission-b"})
+	err = auth.AssignPermissionsToRole("role-aa", []string{"permission-a", "permission-b"})
 	if err == nil {
-		t.Error("expecting error when assigning to missing role")
+		t.Error("failed test assign permission to role")
 	}
 
-	// assign to missing permission
-	err = auth.AssignPermissions("role-a", []string{"permission-aa"})
+	// assign missing permission
+	err = auth.AssignPermissionsToRole("role-a", []string{"permission-aa"})
 	if err == nil {
-		t.Error("expecting error when assigning missing permission")
+		t.Error("failed test assign permission to role")
 	}
 
 	var r authority.Role
-	db.Where("name = ?", "role-a").First(&r)
+	db.Where("slug = ?", "role-a").First(&r)
 	var rolePermsCount int64
-	db.Model(authority.RolePermission{}).Where("role_id = ?", r.ID).Count(&rolePermsCount)
+	res := db.Model(authority.RolePermission{}).Where("role_id = ?", r.ID).Count(&rolePermsCount)
+	if res.Error != nil {
+		t.Error("failed test assign permission to role", res.Error)
+	}
 	if rolePermsCount != 2 {
-		t.Error("failed assigning roles to permission")
+		t.Error("failed test assign permission to role", err)
 	}
 
-	// clean up
-	db.Where("role_id = ?", r.ID).Delete(authority.RolePermission{})
-	db.Where("name = ?", "role-a").Delete(authority.Role{})
-	db.Where("name = ?", "permission-a").Delete(authority.Permission{})
-	db.Where("name = ?", "permission-b").Delete(authority.Permission{})
+	t.Cleanup(func() {
+		// clean up
+		db.Where("role_id = ?", r.ID).Delete(authority.RolePermission{})
+		db.Where("slug = ?", "role-a").Delete(authority.Role{})
+		db.Where("slug = ?", "permission-a").Delete(authority.Permission{})
+		db.Where("slug = ?", "permission-b").Delete(authority.Permission{})
+	})
 }
 
-func TestAssignRole(t *testing.T) {
+func TestAssignRoleToUser(t *testing.T) {
 	auth := authority.New(authority.Options{
 		TablesPrefix: "authority_",
 		DB:           db,
 	})
-
 	// first create a role
-	err := auth.CreateRole("role-a")
+	err := auth.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating role to be assigned.", err)
+		t.Error("failed test assign role to user", err)
 	}
 
 	// assign the role
-	err = auth.AssignRole(1, "role-a")
+	err = auth.AssignRoleToUser(1, "role-a")
 	if err != nil {
-		t.Error("unexpected error while assigning role.", err)
+		t.Error("failed test assign role to user", err)
 	}
 
 	// double assign the role
-	err = auth.AssignRole(1, "role-a")
+	err = auth.AssignRoleToUser(1, "role-a")
 	if err == nil {
-		t.Error("expecting an error when assign a role to user more than one time")
+		t.Error("failed test assign role to user")
 	}
 
 	// assign a second role
-	auth.CreateRole("role-b")
-	err = auth.AssignRole(1, "role-b")
+	auth.CreateRole(authority.Role{
+		Name: "Role B",
+		Slug: "role-b",
+	})
+	err = auth.AssignRoleToUser(1, "role-b")
 	if err != nil {
-		t.Error("un expected error when assigning a second role. ", err)
+		t.Error("failed test assign role to user", err)
 	}
 
 	// assign missing role
-	err = auth.AssignRole(1, "role-aa")
+	err = auth.AssignRoleToUser(1, "role-aa")
 	if err == nil {
-		t.Error("expecting an error when assigning role to a user")
+		t.Error("failed test assign role to user")
 	}
 
 	var r authority.Role
-	db.Where("name = ?", "role-a").First(&r)
+	res := db.Where("slug = ?", "role-a").First(&r)
+	if res.Error != nil {
+		t.Error("failed test assign role to user", res.Error)
+	}
 	var userRoles int64
-	db.Model(authority.UserRole{}).Where("role_id = ?", r.ID).Count(&userRoles)
-	if userRoles != 1 {
-		t.Error("failed assigning roles to permission")
+	res = db.Model(authority.UserRole{}).Where("user_id = ?", 1).Count(&userRoles)
+	if res.Error != nil {
+		t.Error("failed test assign role to user", err)
+	}
+	if userRoles != 2 {
+		t.Error("failed test assign role to user")
 	}
 
-	//clean up
-	db.Where("user_id = ?", 1).Delete(authority.UserRole{})
-	db.Where("name = ?", "role-a").Delete(authority.Role{})
-	db.Where("name = ?", "role-b").Delete(authority.Role{})
+	t.Cleanup(func() {
+		//clean up
+		db.Where("user_id = ?", 1).Delete(authority.UserRole{})
+		db.Where("slug = ?", "role-a").Delete(authority.Role{})
+		db.Where("slug = ?", "role-b").Delete(authority.Role{})
+	})
+
 }
 
-func TestCheckRole(t *testing.T) {
+func TestCheckUserRole(t *testing.T) {
 	auth := authority.New(authority.Options{
 		TablesPrefix: "authority_",
 		DB:           db,
 	})
 
 	// first create a role and assign it to a user
-	err := auth.CreateRole("role-a")
+	err := auth.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating role to be assigned.", err)
+		t.Error("failed test check user role", err)
 	}
 	// assign the role
-	err = auth.AssignRole(1, "role-a")
+	err = auth.AssignRoleToUser(1, "role-a")
 	if err != nil {
-		t.Error("unexpected error while assigning role.", err)
+		t.Error("failed test check user role", err)
 	}
 
 	// assert
-	ok, err := auth.CheckRole(1, "role-a")
+	ok, err := auth.CheckUserRole(1, "role-a")
 	if err != nil {
-		t.Error("unexpected error while checking user for assigned role.", err)
+		t.Error("failed test check user role", err)
 	}
 	if !ok {
-		t.Error("failed to check assinged role")
+		t.Error("failed test check user role")
+	}
+
+	// check not exist assigned role
+	err = auth.CreateRole(authority.Role{
+		Name: "Role B",
+		Slug: "role-b",
+	})
+	if err != nil {
+		t.Error("failed test check user role", err)
+	}
+	ok, err = auth.CheckUserRole(1, "role-b")
+	if err != nil {
+		t.Error("failed test check user role", err)
+	}
+	if ok {
+		t.Error("failed test check user role")
 	}
 
 	// check aa missing role
-	_, err = auth.CheckRole(1, "role-aa")
+	_, err = auth.CheckUserRole(1, "role-aa")
 	if err == nil {
-		t.Error("expecting an error when checking a missing role")
+		t.Error("failed test check user role")
 	}
 
 	// check a missing user
-	ok, _ = auth.CheckRole(11, "role-a")
+	ok, _ = auth.CheckUserRole(11, "role-a")
 	if ok {
-		t.Error("expecting false when checking missing role")
+		t.Error("failed test check user role")
 	}
 
-	// clean up
-	var r authority.Role
-	db.Where("name = ?", "role-a").First(&r)
-	db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
-	db.Where("name = ?", "role-a").Delete(authority.Role{})
+	t.Cleanup(func() {
+		// clean up
+		var r authority.Role
+		db.Where("slug = ?", "role-a").First(&r)
+		db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
+		db.Where("slug = ?", "role-a").Delete(authority.Role{})
+		db.Where("slug = ?", "role-b").Delete(authority.Role{})
+	})
 }
 
-func TestCheckPermission(t *testing.T) {
+// check user permission
+func TestCheckUserPermission(t *testing.T) {
 	auth := authority.New(authority.Options{
 		TablesPrefix: "authority_",
 		DB:           db,
 	})
 
 	// first create a role
-	err := auth.CreateRole("role-a")
+	err := auth.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating role.", err)
+		t.Error("failed test check user permission", err)
 	}
 
 	//create permissions
-	err = auth.CreatePermission("permission-a")
+	err = auth.CreatePermission(authority.Permission{
+		Name: "Permission A",
+		Slug: "permission-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating permission to be assigned.", err)
+		t.Error("failed test check user permission", err)
 	}
-	err = auth.CreatePermission("permission-b")
+	err = auth.CreatePermission(authority.Permission{
+		Name: "Permission B",
+		Slug: "permission-b",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating permission to be assigned.", err)
+		t.Error("failed test check user permission", err)
 	}
 
 	// assign the permissions
-	err = auth.AssignPermissions("role-a", []string{"permission-a", "permission-b"})
+	err = auth.AssignPermissionsToRole("role-a", []string{"permission-a", "permission-b"})
 	if err != nil {
-		t.Error("unexpected error while assigning permissions.", err)
+		t.Error("failed test check user permission", err)
 	}
 
 	// test when no role is a ssigned
-	ok, err := auth.CheckPermission(1, "permission-a")
+	ok, err := auth.CheckUserPermission(1, "permission-a")
 	if err != nil {
-		t.Error("expecting error to be nil when no role is assigned")
+		t.Error("failed test check user permission", err)
 	}
 	if ok {
-		t.Error("expecting false to be returned when no role is assigned")
+		t.Error("failed test check user permission")
 	}
 
 	// assign the role
-	err = auth.AssignRole(1, "role-a")
+	err = auth.AssignRoleToUser(1, "role-a")
 	if err != nil {
-		t.Error("unexpected error while assigning role.", err)
+		t.Error("failed test check user permission", err)
 	}
 
 	// test a permission of an assigned role
-	ok, err = auth.CheckPermission(1, "permission-a")
+	ok, err = auth.CheckUserPermission(1, "permission-a")
 	if err != nil {
-		t.Error("unexpected error while checking permission of a user.", err)
+		t.Error("failed test check user permission", err)
 	}
 	if !ok {
-		t.Error("expecting true to be returned")
-	}
-
-	// check when user does not have roles
-	ok, _ = auth.CheckPermission(111, "permission-a")
-	if ok {
-		t.Error("expecting an false when checking permission of not assigned  user")
+		t.Error("failed test check user permission")
 	}
 
 	// test assigning missing permission
-	_, err = auth.CheckPermission(1, "permission-aa")
+	_, err = auth.CheckUserPermission(1, "permission-aa")
 	if err == nil {
-		t.Error("expecting an error when checking a missing permission")
+		t.Error("failed test check user permission")
 	}
 
-	// check for an exist but not assigned permission
-	auth.CreatePermission("permission-c")
-	ok, _ = auth.CheckPermission(1, "permission-c")
-	if ok {
-		t.Error("expecting false when checking for not assigned permissions")
-	}
+	t.Cleanup(func() {
+		// clean up
+		var r authority.Role
+		db.Where("slug = ?", "role-a").First(&r)
+		db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
+		db.Where("role_id = ?", r.ID).Delete(authority.RolePermission{})
+		db.Where("slug = ?", "permission-a").Delete(authority.Permission{})
+		db.Where("slug = ?", "permission-b").Delete(authority.Permission{})
+		db.Where("slug = ?", "role-a").Delete(authority.Role{})
+	})
 
-	// clean up
-	var r authority.Role
-	db.Where("name = ?", "role-a").First(&r)
-	db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
-	db.Where("role_id = ?", r.ID).Delete(authority.RolePermission{})
-	db.Where("name = ?", "permission-a").Delete(authority.Permission{})
-	db.Where("name = ?", "permission-b").Delete(authority.Permission{})
-	db.Where("name = ?", "permission-c").Delete(authority.Permission{})
-	db.Where("name = ?", "role-a").Delete(authority.Role{})
 }
 
 func TestCheckRolePermission(t *testing.T) {
@@ -346,172 +406,125 @@ func TestCheckRolePermission(t *testing.T) {
 	})
 
 	// first create a role
-	err := auth.CreateRole("role-a")
+	err := auth.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating role.", err)
+		t.Error("failed test check role permission", err)
 	}
 
 	// second test create permissions
-	err = auth.CreatePermission("permission-a")
+	err = auth.CreatePermission(authority.Permission{
+		Name: "Permission A",
+		Slug: "permission-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating permission to be assigned.", err)
+		t.Error("failed test check role permission", err)
 	}
-	err = auth.CreatePermission("permission-b")
+	err = auth.CreatePermission(authority.Permission{
+		Name: "Permission B",
+		Slug: "permission-b",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating permission to be assigned.", err)
+		t.Error("failed test check role permission", err)
 	}
 
 	// third assign the permissions
-	err = auth.AssignPermissions("role-a", []string{"permission-a", "permission-b"})
+	err = auth.AssignPermissionsToRole("role-a", []string{"permission-a", "permission-b"})
 	if err != nil {
-		t.Error("unexpected error while assigning permissions.", err)
+		t.Error("failed test check role permission", err)
 	}
 
 	// check the role permission
 	ok, err := auth.CheckRolePermission("role-a", "permission-a")
 	if err != nil {
-		t.Error("unexpected error while checking role permission.", err)
+		t.Error("failed test check role permission", err)
 	}
 	if !ok {
-		t.Error("failed assigning roles to permission check")
+		t.Error("failed test check role permission")
 	}
 
 	// check a missing role
 	_, err = auth.CheckRolePermission("role-aa", "permission-a")
 	if err == nil {
-		t.Error("expecting an error when checking permisson of missing role")
+		t.Error("failed test check role permission")
 	}
 
 	// check with missing permission
 	_, err = auth.CheckRolePermission("role-a", "permission-aa")
 	if err == nil {
-		t.Error("expecting an error when checking missing permission")
+		t.Error("failed test check role permission", err)
 	}
 
 	// check with not assigned permission
-	auth.CreatePermission("permission-c")
+	auth.CreatePermission(authority.Permission{
+		Name: "Permission C",
+		Slug: "permission-c",
+	})
 	ok, _ = auth.CheckRolePermission("role-a", "permission-c")
 	if ok {
-		t.Error("expecting false when checking a missing permission")
+		t.Error("failed test check role permission")
 	}
 
-	//clean up
-	var r authority.Role
-	db.Where("name = ?", "role-a").First(&r)
-	db.Where("role_id = ?", r.ID).Delete(authority.RolePermission{})
-	db.Where("name = ?", "permission-a").Delete(authority.Permission{})
-	db.Where("name = ?", "permission-b").Delete(authority.Permission{})
-	db.Where("name = ?", "permission-c").Delete(authority.Permission{})
-	db.Where("name = ?", "role-a").Delete(authority.Role{})
+	t.Cleanup(func() {
+		//clean up
+		var r authority.Role
+		db.Where("slug = ?", "role-a").First(&r)
+		db.Where("role_id = ?", r.ID).Delete(authority.RolePermission{})
+		db.Where("slug = ?", "permission-a").Delete(authority.Permission{})
+		db.Where("slug = ?", "permission-b").Delete(authority.Permission{})
+		db.Where("slug = ?", "permission-c").Delete(authority.Permission{})
+		db.Where("slug = ?", "role-a").Delete(authority.Role{})
+	})
+
 }
 
-func TestRevokeRole(t *testing.T) {
+func TestRevokeUserRole(t *testing.T) {
 	auth := authority.New(authority.Options{
 		TablesPrefix: "authority_",
 		DB:           db,
 	})
 
 	// first create a role
-	err := auth.CreateRole("role-a")
+	err := auth.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating role.", err)
+		t.Error("failed test revoke user role", err)
 	}
 
 	// assign the role
-	err = auth.AssignRole(1, "role-a")
+	err = auth.AssignRoleToUser(1, "role-a")
 	if err != nil {
-		t.Error("unexpected error while assigning role.", err)
+		t.Error("failed test revoke user role", err)
 	}
 
 	//test
-	err = auth.RevokeRole(1, "role-a")
+	err = auth.RevokeUserRole(1, "role-a")
 	if err != nil {
-		t.Error("unexpected error revoking user role.", err)
+		t.Error("failed test revoke user role", err)
 	}
+
 	// revoke missing role
-	err = auth.RevokeRole(1, "role-aa")
+	err = auth.RevokeUserRole(1, "role-aa")
 	if err == nil {
-		t.Error("expecting error when revoking a missing role")
+		t.Error("failed test revoke user role")
 	}
 
 	var c int64
 	db.Model(authority.UserRole{}).Where("user_id = ?", 1).Count(&c)
 	if c != 0 {
-		t.Error("failed assert revoking user role")
+		t.Error("failed test revoke user role")
 	}
 
-	var r authority.Role
-	db.Where("name = ?", "role-a").First(&r)
-	db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
-	db.Where("name = ?", "role-a").Delete(authority.Role{})
-}
-
-func TestRevokePermission(t *testing.T) {
-	auth := authority.New(authority.Options{
-		TablesPrefix: "authority_",
-		DB:           db,
+	t.Cleanup(func() {
+		var r authority.Role
+		db.Where("slug = ?", "role-a").First(&r)
+		db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
+		db.Where("slug = ?", "role-a").Delete(authority.Role{})
 	})
-
-	// first create a role
-	err := auth.CreateRole("role-a")
-	if err != nil {
-		t.Error("unexpected error while creating role.", err)
-	}
-	// second test create permissions
-	err = auth.CreatePermission("permission-a")
-	if err != nil {
-		t.Error("unexpected error while creating permission to be assigned.", err)
-	}
-	err = auth.CreatePermission("permission-b")
-	if err != nil {
-		t.Error("unexpected error while creating permission to be assigned.", err)
-	}
-
-	// third assign the permissions
-	err = auth.AssignPermissions("role-a", []string{"permission-a", "permission-b"})
-	if err != nil {
-		t.Error("unexpected error while assigning permissions.", err)
-	}
-
-	// assign the role
-	err = auth.AssignRole(1, "role-a")
-	if err != nil {
-		t.Error("unexpected error while assigning role.", err)
-	}
-
-	// case: user not assigned role
-	err = auth.RevokePermission(11, "permission-a")
-	if err != nil {
-		t.Error("expecting error to be nil", err)
-	}
-
-	// test
-	err = auth.RevokePermission(1, "permission-a")
-	if err != nil {
-		t.Error("unexpected error while revoking role permissions.", err)
-	}
-
-	// revoke missing permissin
-	err = auth.RevokePermission(1, "permission-aa")
-	if err == nil {
-		t.Error("expecting error when revoking a missing permission")
-	}
-
-	// assert, count assigned permission, should be one
-	var r authority.Role
-	db.Where("name = ?", "role-a").First(&r)
-	var c int64
-	db.Model(authority.RolePermission{}).Where("role_id = ?", r.ID).Count(&c)
-	if c != 1 {
-		t.Error("failed assert revoking permission role")
-	}
-
-	// clean up
-	db.Where("role_id = ?", r.ID).Delete(authority.UserRole{})
-	db.Where("role_id = ?", r.ID).Delete(authority.RolePermission{})
-	db.Where("name = ?", "permission-a").Delete(authority.Permission{})
-	db.Where("name = ?", "permission-b").Delete(authority.Permission{})
-	db.Where("name = ?", "role-a").Delete(authority.Role{})
 }
 
 func TestRevokeRolePermission(t *testing.T) {
@@ -521,108 +534,139 @@ func TestRevokeRolePermission(t *testing.T) {
 	})
 
 	// first create a role
-	err := auth.CreateRole("role-a")
+	err := auth.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating role.", err)
+		t.Error("failed test revoke role permission", err)
 	}
 	// second test create permissions
-	err = auth.CreatePermission("permission-a")
+	err = auth.CreatePermission(authority.Permission{
+		Name: "Permission A",
+		Slug: "permission-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating permission to be assigned.", err)
+		t.Error("failed test revoke role permission", err)
 	}
-	err = auth.CreatePermission("permission-b")
+	err = auth.CreatePermission(authority.Permission{
+		Name: "Permission B",
+		Slug: "permission-b",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating permission to be assigned.", err)
+		t.Error("failed test revoke role permission", err)
 	}
 
 	// third assign the permissions
-	err = auth.AssignPermissions("role-a", []string{"permission-a", "permission-b"})
+	err = auth.AssignPermissionsToRole("role-a", []string{"permission-a", "permission-b"})
 	if err != nil {
-		t.Error("unexpected error while assigning permissions.", err)
+		t.Error("failed test revoke role permission", err)
 	}
 
 	// test revoke missing role
 	err = auth.RevokeRolePermission("role-aa", "permission-a")
 	if err == nil {
-		t.Error("expecting an error when revoking a missing role")
+		t.Error("failed test revoke role permission")
 	}
 
 	// test revoke missing permission
 	err = auth.RevokeRolePermission("role-a", "permission-aa")
 	if err == nil {
-		t.Error("expecting an error when revoking a missing permission")
+		t.Error("failed test revoke role permission")
 	}
 
 	err = auth.RevokeRolePermission("role-a", "permission-a")
 	if err != nil {
-		t.Error("unexpected error while revoking role permissions.", err)
+		t.Error("failed test revoke role permission")
 	}
 	// assert, count assigned permission, should be one
 	var r authority.Role
-	db.Where("name = ?", "role-a").First(&r)
+	res := db.Where("slug = ?", "role-a").First(&r)
+	if res.Error != nil {
+		t.Error("failed test revoke role permission", res.Error)
+	}
 	var c int64
 	db.Model(authority.RolePermission{}).Where("role_id = ?", r.ID).Count(&c)
 	if c != 1 {
-		t.Error("failed assert revoking permission role")
+		t.Error("failed test revoke role permission")
 	}
 
-	// clean up
-	db.Where("role_id = ?", r.ID).Delete(authority.RolePermission{})
-	db.Where("name = ?", "permission-a").Delete(authority.Permission{})
-	db.Where("name = ?", "permission-b").Delete(authority.Permission{})
-	db.Where("name = ?", "role-a").Delete(authority.Role{})
+	t.Cleanup(func() {
+		// clean up
+		db.Where("role_id = ?", r.ID).Delete(authority.RolePermission{})
+		db.Where("slug = ?", "permission-a").Delete(authority.Permission{})
+		db.Where("slug = ?", "permission-b").Delete(authority.Permission{})
+		db.Where("slug = ?", "role-a").Delete(authority.Role{})
+	})
+
 }
 
-func TestGetRoles(t *testing.T) {
+func TestGetAllRoles(t *testing.T) {
 	auth := authority.New(authority.Options{
 		TablesPrefix: "authority_",
 		DB:           db,
 	})
 
 	// first create roles
-	err := auth.CreateRole("role-a")
+	err := auth.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating role.", err)
+		t.Error("failed test get roles", err)
 	}
-	err = auth.CreateRole("role-b")
+	err = auth.CreateRole(authority.Role{
+		Name: "Role B",
+		Slug: "role-b",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating role.", err)
+		t.Error("failed test get roles", err)
 	}
 
 	// test
-	roles, err := auth.GetRoles()
+	roles, err := auth.GetAllRoles()
+	if err != nil {
+		t.Error("failed test get roles", err)
+	}
+
 	// check
 	if len(roles) != 2 {
-		t.Error("failed assert getting roles")
+		t.Error("failed test get roles")
 	}
-	db.Where("name = ?", "role-a").Delete(authority.Role{})
-	db.Where("name = ?", "role-b").Delete(authority.Role{})
+	db.Where("slug = ?", "role-a").Delete(authority.Role{})
+	db.Where("slug = ?", "role-b").Delete(authority.Role{})
 }
 
-func TestGetPermissions(t *testing.T) {
+func TestGetAllPermissions(t *testing.T) {
 	auth := authority.New(authority.Options{
 		TablesPrefix: "authority_",
 		DB:           db,
 	})
 
 	// first create permission
-	err := auth.CreatePermission("permission-a")
+	err := auth.CreatePermission(authority.Permission{
+		Name: "Permission A",
+		Slug: "permission-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating permission.", err)
+		t.Error("failed test get permissions", err)
 	}
-	err = auth.CreatePermission("permission-b")
+	err = auth.CreatePermission(authority.Permission{
+		Name: "Permission B",
+		Slug: "permission-b",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating permission.", err)
+		t.Error("failed test get permissions", err)
 	}
 
 	// test
-	perms, err := auth.GetPermissions()
+	perms, err := auth.GetAllPermissions()
 	// check
 	if len(perms) != 2 {
-		t.Error("failed assert getting permission")
+		t.Error("failed test get permissions")
 	}
-	db.Where("name = ?", "permission-a").Delete(authority.Permission{})
-	db.Where("name = ?", "permission-b").Delete(authority.Permission{})
+	db.Where("slug = ?", "permission-a").Delete(authority.Permission{})
+	db.Where("slug = ?", "permission-b").Delete(authority.Permission{})
 }
 
 func TestDeleteRole(t *testing.T) {
@@ -631,34 +675,42 @@ func TestDeleteRole(t *testing.T) {
 		DB:           db,
 	})
 
-	err := auth.CreateRole("role-a")
+	err := auth.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating role.", err)
+		t.Error("failed test delete role", err)
 	}
 
 	// test delete a missing role
 	err = auth.DeleteRole("role-aa")
 	if err == nil {
-		t.Error("expecting an error when deleting a missing role")
+		t.Error("failed test delete role")
 	}
 
 	// test delete an assigned role
-	auth.AssignRole(1, "role-a")
+	err = auth.AssignRoleToUser(1, "role-a")
+	if err != nil {
+		t.Error("failed test delete role", err)
+	}
 	err = auth.DeleteRole("role-a")
 	if err == nil {
-		t.Error("expecting an error when deleting an assigned role")
+		t.Error("failed test delete role")
 	}
-	auth.RevokeRole(1, "role-a")
-
+	err = auth.RevokeUserRole(1, "role-a")
+	if err != nil {
+		t.Error("failed test delete role", err)
+	}
 	err = auth.DeleteRole("role-a")
 	if err != nil {
-		t.Error("unexpected error while deleting role.", err)
+		t.Error("failed test delete role", err)
 	}
 
 	var c int64
-	db.Model(authority.Role{}).Count(&c)
+	db.Model(authority.Role{}).Where("slug = ?", "role-a").Count(&c)
 	if c != 0 {
-		t.Error("failed assert deleting role")
+		t.Error("failed test delete role")
 	}
 }
 
@@ -668,38 +720,47 @@ func TestDeletePermission(t *testing.T) {
 		DB:           db,
 	})
 
-	err := auth.CreatePermission("permission-a")
+	err := auth.CreatePermission(authority.Permission{
+		Name: "Permission A",
+		Slug: "permission-a",
+	})
 	if err != nil {
-		t.Error("unexpected error while creating permission.", err)
+		t.Error("failed test delete permission", err)
 	}
 
 	// delete missing permission
 	err = auth.DeletePermission("permission-aa")
 	if err == nil {
-		t.Error("expecting an error when deleting a missing permission")
+		t.Error("failed test delete permission", err)
 	}
 
 	// delete an assigned permission
-	auth.CreateRole("role-a")
-	auth.AssignPermissions("role-a", []string{"permission-a"})
+	auth.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
+	auth.AssignPermissionsToRole("role-a", []string{"permission-a"})
 
 	// delete assinged permission
 	err = auth.DeletePermission("permission-a")
 	if err == nil {
-		t.Error("expecting an error when deleting assigned permission")
+		t.Error("failed test delete permission")
 	}
 
-	auth.RevokeRolePermission("role-a", "permission-a")
+	err = auth.RevokeRolePermission("role-a", "permission-a")
+	if err != nil {
+		t.Error("failed test delete permission", err)
+	}
 
 	err = auth.DeletePermission("permission-a")
 	if err != nil {
-		t.Error("unexpected error while deleting permission.", err)
+		t.Error("failed test delete permission", err)
 	}
 
 	var c int64
 	db.Model(authority.Permission{}).Count(&c)
 	if c != 0 {
-		t.Error("failed assert deleting permission")
+		t.Error("failed test delete permission")
 	}
 
 	// clean up
@@ -713,35 +774,170 @@ func TestGetUserRoles(t *testing.T) {
 	})
 
 	// first create a role
-	auth.CreateRole("role-a")
-	auth.CreateRole("role-b")
-	auth.AssignRole(1, "role-a")
-	auth.AssignRole(1, "role-b")
+	err := auth.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
+	if err != nil {
+		t.Error("failed test get user roles", err)
+	}
 
-	roles, _ := auth.GetUserRoles(1)
+	err = auth.CreateRole(authority.Role{
+		Name: "Role B",
+		Slug: "role-b",
+	})
+	if err != nil {
+		t.Error("failed test get user roles", err)
+	}
+	err = auth.AssignRoleToUser(1, "role-a")
+	if err != nil {
+		t.Error("failed test get user roles", err)
+	}
+	err = auth.AssignRoleToUser(1, "role-b")
+	if err != nil {
+		t.Error("failed test get user roles", err)
+	}
+
+	roles, err := auth.GetUserRoles(1)
+	if err != nil {
+		t.Error("failed test get user roles", err)
+	}
+
 	if len(roles) != 2 {
-		t.Error("expeting two roles to be returned")
+		t.Error("failed test get user roles")
 	}
-
-	if !sliceHasString(roles, "role-a") {
-		t.Error("missing role in returned roles")
-	}
-
-	if !sliceHasString(roles, "role-b") {
-		t.Error("missing role in returned roles")
-	}
-
-	db.Where("user_id = ?", 1).Delete(authority.UserRole{})
-	db.Where("name = ?", "role-a").Delete(authority.Role{})
-	db.Where("name = ?", "role-b").Delete(authority.Role{})
-}
-
-func sliceHasString(s []string, val string) bool {
-	for _, v := range s {
-		if v == val {
-			return true
+	for _, role := range roles {
+		if !(role.Slug == "role-a" || role.Slug == "role-b") {
+			t.Error("failed test get user roles")
 		}
 	}
 
-	return false
+	db.Where("user_id = ?", 1).Delete(authority.UserRole{})
+	db.Where("slug = ?", "role-a").Delete(authority.Role{})
+	db.Where("slug = ?", "role-b").Delete(authority.Role{})
+}
+
+func TestGetRolePermissions(t *testing.T) {
+	auth := authority.New(authority.Options{
+		TablesPrefix: "authority_",
+		DB:           db,
+	})
+
+	err := auth.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
+	if err != nil {
+		t.Error("failed test get role permissions", err)
+	}
+	err = auth.CreatePermission(authority.Permission{
+		Name: "Permission A",
+		Slug: "permission-a",
+	})
+	if err != nil {
+		t.Error("failed test get role permissions", err)
+	}
+	err = auth.CreatePermission(authority.Permission{
+		Name: "Permission B",
+		Slug: "permission-b",
+	})
+	if err != nil {
+		t.Error("failed test get role permissions", err)
+	}
+	err = auth.AssignPermissionsToRole("role-a", []string{"permission-a", "permission-b"})
+	rolePermissions, err := auth.GetRolePermissions("role-a")
+	if err != nil {
+		t.Error("failed test get role permissions", err)
+	}
+	if len(rolePermissions) != 2 {
+		t.Error("failed test get role permissions", err)
+	}
+	var r authority.Role
+	db.Where("slug = ?", "role-a").First(&r)
+	db.Where("role_id = ?", r.ID).Delete(authority.RolePermission{})
+	db.Where("slug = ?", "role-a").Delete(authority.Role{})
+	db.Where("slug = ?", "permission-a").Delete(authority.Permission{})
+	db.Where("slug = ?", "permission-b").Delete(authority.Permission{})
+}
+
+func TestTransaction(t *testing.T) {
+	auth := authority.New(authority.Options{
+		TablesPrefix: "authority_",
+		DB:           db,
+	})
+	tx := auth.BeginTX()
+	err := tx.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
+	if err != nil {
+		t.Error("failed test transactions", err)
+	}
+
+	err = tx.CreatePermission(authority.Permission{
+		Name: "Permission A",
+		Slug: "permission-a",
+	})
+	if err != nil {
+		t.Error("failed test transactions", err)
+	}
+	err = tx.CreatePermission(authority.Permission{
+		Name: "Permission B",
+		Slug: "permission-b",
+	})
+	if err != nil {
+		t.Error("failed test transactions", err)
+	}
+	tx.Rollback()
+
+	var rCount int64
+	db.Model(authority.Role{}).Count(&rCount)
+	if rCount != 0 {
+		t.Error("failed test transactions")
+	}
+	var permCount int64
+	db.Model(authority.Permission{}).Count(&permCount)
+	if permCount != 0 {
+		t.Error("failed test transactions")
+	}
+
+	tx = auth.BeginTX()
+	err = tx.CreateRole(authority.Role{
+		Name: "Role A",
+		Slug: "role-a",
+	})
+	if err != nil {
+		t.Error("failed test transactions", err)
+	}
+
+	err = tx.CreatePermission(authority.Permission{
+		Name: "Permission A",
+		Slug: "permission-a",
+	})
+	if err != nil {
+		t.Error("failed test transactions", err)
+	}
+	err = tx.CreatePermission(authority.Permission{
+		Name: "Permission B",
+		Slug: "permission-b",
+	})
+	if err != nil {
+		t.Error("failed test transactions", err)
+	}
+	tx.Commit()
+
+	db.Model(authority.Role{}).Count(&rCount)
+	if rCount != 1 {
+		t.Error("failed test transactions")
+	}
+	db.Model(authority.Permission{}).Count(&permCount)
+	if permCount != 2 {
+		t.Error("failed test transactions")
+	}
+
+	t.Cleanup(func() {
+		db.Where("slug = ?", "role-a").Delete(&authority.Role{})
+		db.Where("slug = ?", "permission-a").Delete(&authority.Permission{})
+		db.Where("slug = ?", "permission-b").Delete(&authority.Permission{})
+	})
 }

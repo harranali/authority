@@ -1,12 +1,13 @@
 package authority
 
-// Role represents the database model of roles
+// The database model of a role
 type Role struct {
-	ID   uint
-	Name string
+	ID   uint   // The role id (it gets set automatically by the database)
+	Name string // The name of the role
+	Slug string // String based unique identifier of the role, (use hyphen seperated role name '-', instead of space)
 }
 
 // TableName sets the table name
 func (r Role) TableName() string {
-	return tablePrefix + "roles"
+	return auth.TablesPrefix + "roles"
 }
