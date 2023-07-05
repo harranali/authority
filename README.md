@@ -8,6 +8,7 @@
 
 Role Based Access Control (RBAC) Go package with database persistence 
 # Features
+- Database Transactions
 - Create Roles
 - Create Permissions
 - Assign Permissions to Roles
