@@ -1,16 +1,5 @@
 package authority
 
-////////// TODO ////////
-// - change user id to interface //////////
-// - add display name property for the roles permissions ////////////////
-// - update method names to more discriptive names //////////////
-// - fix unit tests ///////////////
-// - write unittest for Transaction() function ///////////////////
-// - fix the function doc blocks ////////
-// - write docs for testing transactions in readme.md /////////
-// - fix the readme.md file
-// - before push fix the dsn in the tests file
-
 import (
 	"errors"
 	"fmt"

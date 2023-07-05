@@ -24,9 +24,9 @@ func TestMain(m *testing.M) {
 	if os.Getenv("env") == "testing" {
 		fmt.Println("preparing testing config...")
 		dsn = fmt.Sprintf("root:%s@tcp(127.0.0.1:3306)/db_test?charset=utf8mb4&parseTime=True&loc=Local",
-		os.Getenv("ROOT_PASSWORD"))
+			os.Getenv("ROOT_PASSWORD"))
 	} else {
-		dsn = "root:@tcp(127.0.0.1:3306)/db_test?charset=utf8mb4&parseTime=True&loc=Local"
+		dsn = "root:root@tcp(127.0.0.1:3306)/db_test?charset=utf8mb4&parseTime=True&loc=Local"
 	}
 
 	db, _ = gorm.Open(mysql.Open(dsn), &gorm.Config{
@@ -865,9 +865,6 @@ func TestTransaction(t *testing.T) {
 		TablesPrefix: "authority_",
 		DB:           db,
 	})
-	authority.Role{
-		NA
-	}
 	tx := auth.BeginTX()
 	err := tx.CreateRole(authority.Role{
 		Name: "Role A",
