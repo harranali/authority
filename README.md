@@ -21,7 +21,7 @@ Role Based Access Control (RBAC) Go package with database persistence
 - List all roles in the database
 - List all Permissions in the database
 - Delete a given role
-- Delete a given ermissions
+- Delete a given permission
 
 # Install
 1. Go get the package
