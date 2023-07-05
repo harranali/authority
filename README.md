@@ -292,7 +292,7 @@ err := auth.DeletePermission("permission-c")
 here is an example of how to use transactions
 ```go
 
-// begin a trnasaction session
+// begin a transaction session
 tx := auth.BeginTX()
 // create role
 err = tx.CreateRole(authority.Role{
