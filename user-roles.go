@@ -3,7 +3,7 @@ package authority
 // The link between the users and roles
 type UserRole struct {
 	ID     uint   // Unique id (it gets set automatically by the database)
-	UserID uint // The user id
+	UserID uint // The user id 
 	RoleID uint   // The role id
 }
 
