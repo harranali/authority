@@ -163,8 +163,7 @@ func (a *Authority) AssignPermissionsToRole(roleSlug string, permSlugs []string)
 // it returns an error in case of any
 // it returns an error in case the role does not exists
 // it returns an error in case the role is already assigned
-func (a *Authority) AssignRoleToUser(userID interface{}, roleSlug string) error {
-	userIDStr := fmt.Sprintf("%v", userID)
+func (a *Authority) AssignRoleToUser(userID uint, roleSlug string) error {
 	var role Role
 	res := a.DB.Where("slug = ?", roleSlug).First(&role)
 	if res.Error != nil {
@@ -174,16 +173,16 @@ func (a *Authority) AssignRoleToUser(userID interface{}, roleSlug string) error 
 		return res.Error
 	}
 	var userRole UserRole
-	res = a.DB.Where("user_id = ?", userIDStr).Where("role_id = ?", role.ID).First(&userRole)
+	res = a.DB.Where("user_id = ?", userID).Where("role_id = ?", role.ID).First(&userRole)
 	if res.Error != nil && errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		a.DB.Create(&UserRole{UserID: userIDStr, RoleID: role.ID})
+		a.DB.Create(&UserRole{UserID: userID, RoleID: role.ID})
 		return nil
 	}
 	if res.Error != nil && !errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		return res.Error
 	}
 
-	return errors.New(fmt.Sprintf("this role '%v' is aleady assigned to the user", roleSlug))
+	return errors.New(fmt.Sprintf("this role '%v' is already assigned to the user", roleSlug))
 }
 
 // Checks if a role is assigned to a user

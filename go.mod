@@ -1,4 +1,4 @@
-module github.com/harranali/authority
+module github.com/pooriaghaedi/authority
 
 go 1.16
 
